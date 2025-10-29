@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Phenakistoscope simulator</title>
+<style>
+  :root{ --bg:#0f1724; --card:#0b1220; --muted:#9aa7bf; }
+  body{font-family:Inter,system-ui,Segoe UI,Roboto,Arial; background:linear-gradient(180deg,#071029 0%, #0b1220 100%); color:#e6eef8; margin:0; padding:20px;}
+  .wrap{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:360px 1fr;gap:20px;align-items:start}
+  .panel{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); padding:16px;border-radius:12px;box-shadow:0 6px 30px rgba(2,6,23,0.6)}
+  h1{margin:0 0 8px;font-size:20px}
+  label{display:block;margin:12px 0 6px;color:var(--muted);font-size:13px}
+  select,input[type=text],input[type=range],button{width:100%;box-sizing:border-box;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:inherit}
+  .viewer{position:relative;display:flex;justify-content:center;align-items:center;height:560px}
+  canvas{background:#07111b;border-radius:6px;transition:all 0.3s ease}
+  .insetCanvas{position:absolute;bottom:16px;right:16px;width:180px;height:180px;border-radius:50%;overflow:hidden;border:3px solid rgba(255,255,255,0.1);box-shadow:0 0 10px rgba(0,0,0,0.5);}
+  .controls{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .row{display:flex;gap:8px}
+  .note{font-size:12px;color:var(--muted);margin-top:8px}
+  .small{font-size:13px}
+  .examples{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .thumb{width:72px;height:72px;border-radius:8px;overflow:hidden;cursor:pointer;border:2px solid transparent}
+  .thumb img{width:100%;height:100%;object-fit:cover}
+  .thumb.selected{border-color:#6ee7b7}
+  footer{margin-top:14px;color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="panel">
+    <h1>Phenakistoscope simulator</h1>
+    <div class="note">Switch between simulation and realistic view modes. Upload or paste ACMI disc images, then adjust speed and slits.</div>
+
+    <div class="row" style="margin-bottom:12px">
+      <button id="switchView">Switch View (Simulation)</button>
+      <button id="pause">Pause</button>
+      <button id="reset">Reset</button>
+    </div>
+
+    <label>Built-in examples</label>
+    <div class="examples" id="examples"></div>
+
+    <label class="small">Image URL</label>
+    <input id="imgUrl" type="text" placeholder="https://...jpg or png" />
+    <div class="row">
+      <input id="loadUrl" type="button" value="Load URL" />
+      <input id="upload" type="file" accept="image/*" />
+    </div>
+
+    <label>Rotation speed (rotations per second)</label>
+    <input id="speed" type="range" min="0" max="6" step="0.05" value="2" />
+    <div class="controls">
+      <div>
+        <label>Number of slits</label>
+        <input id="slits" type="range" min="4" max="48" step="1" value="12" />
+      </div>
+      <div>
+        <label>Slit width (degrees)</label>
+        <input id="slitWidth" type="range" min="1" max="40" step="1" value="6" />
+      </div>
+    </div>
+
+    <label>View options</label>
+    <div class="controls">
+      <div>
+        <label><input id="mirror" type="checkbox" checked/> Mirror</label>
+      </div>
+      <div>
+        <label><input id="showDisc" type="checkbox" checked/> Show spinning disc</label>
+      </div>
+    </div>
+
+    <footer>View modes: Simulation or Realistic (with your uploaded frame background).</footer>
+  </div>
+
+  <div class="panel viewer">
+    <canvas id="canvas" width="720" height="720"></canvas>
+    <canvas id="insetCanvas" class="insetCanvas" width="200" height="200"></canvas>
+  </div>
+</div>
+
+<script>
+const examples = [
+  {name:'Simple dancer', url:'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600"><rect width="100%" height="100%" fill="#07111b"/><g transform="translate(300,300)">${[...Array(12)].map((_,i)=>`<g transform="rotate(${i*30}) translate(150)"><circle r="36" fill="none" stroke="#e6eef8" stroke-width="6" opacity="${0.6 - (i/18)}"/></g>`).join('')}</g></svg>`)}
+];
+
+const examplesEl = document.getElementById('examples');
+examples.forEach((ex,idx)=>{
+  const el = document.createElement('div'); el.className='thumb'; el.title=ex.name; el.innerHTML = `<img src="${ex.url}" alt="${ex.name}">`;
+  el.addEventListener('click', ()=>{selectExample(idx);});
+  examplesEl.appendChild(el);
+});
+
+let selectedExample = null;
+function selectExample(i){ selectedExample = i; document.querySelectorAll('.thumb').forEach((t,idx)=>t.classList.toggle('selected', idx===i)); loadImage(examples[i].url); }
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const insetCanvas = document.getElementById('insetCanvas');
+const insetCtx = insetCanvas.getContext('2d');
+let img = null;
+let angle = 0;
+let last = performance.now();
+let running = true;
+let viewMode = 'simulation';
+let frameImg = new Image();
+frameImg.src = '9965f708-6fd1-43a3-8b4a-9b29a187c1f8.png';
+
+function loadImage(src){ const i = new Image(); i.crossOrigin='anonymous'; i.onload=()=>{ img=i; }; i.src=src; }
+
+function clear(ctx,w,h){ ctx.clearRect(0,0,w,h); }
+function drawDisc(ctx,w,h,theta){ if(!img)return; const cx=w/2, cy=h/2; ctx.save(); ctx.translate(cx,cy); ctx.rotate(theta); const s=Math.min(w*0.9/img.width,h*0.9/img.height); const ww=img.width*s,hh=img.height*s; ctx.drawImage(img,-ww/2,-hh/2,ww,hh); ctx.restore(); }
+function drawReflectedThroughSlits(ctx,w,h,theta){ if(!img)return; const slits=parseInt(slitsEl.value,10); const slitDeg=parseFloat(slitWidthEl.value); const off=document.createElement('canvas'); off.width=w; off.height=h; const octx=off.getContext('2d'); octx.translate(w/2,h/2); if(mirrorEl.checked)octx.scale(-1,1); octx.rotate(theta); const s=Math.min(w*0.9/img.width,h*0.9/img.height); const ww=img.width*s,hh=img.height*s; octx.drawImage(img,-ww/2,-hh/2,ww,hh); const mask=document.createElement('canvas'); mask.width=w; mask.height=h; const mctx=mask.getContext('2d'); mctx.translate(w/2,h/2); for(let i=0;i<slits;i++){ const a=(i*2*Math.PI/slits)-0.5*(slitDeg*Math.PI/180); const aw=slitDeg*Math.PI/180; mctx.beginPath(); mctx.moveTo(0,0); mctx.arc(0,0,Math.max(w,h),a,a+aw); mctx.closePath(); mctx.fillStyle='white'; mctx.fill(); } octx.globalCompositeOperation='destination-in'; octx.drawImage(mask,-w/2,-h/2); ctx.drawImage(off,0,0); }
+
+const speedEl=document.getElementById('speed');
+const slitsEl=document.getElementById('slits');
+const slitWidthEl=document.getElementById('slitWidth');
+const mirrorEl=document.getElementById('mirror');
+const showDiscEl=document.getElementById('showDisc');
+const pauseBtn=document.getElementById('pause');
+const resetBtn=document.getElementById('reset');
+const switchBtn=document.getElementById('switchView');
+
+pauseBtn.onclick=()=>{ running=!running; pauseBtn.textContent=running?'Pause':'Resume'; if(running){ last=performance.now(); requestAnimationFrame(loop);} };
+resetBtn.onclick=()=>{ angle=0; };
+switchBtn.onclick=()=>{ viewMode=(viewMode==='simulation'?'realistic':'simulation'); switchBtn.textContent=`Switch View (${viewMode==='simulation'?'Simulation':'Realistic'})`; };
+
+function loop(ts){ if(!running)return; const dt=(ts-last)/1000; last=ts; angle+=dt*parseFloat(speedEl.value)*2*Math.PI; clear(ctx,canvas.width,canvas.height);
+  if(viewMode==='simulation'){
+    if(showDiscEl.checked && img){drawDisc(ctx,canvas.width,canvas.height,angle);} if(img){drawReflectedThroughSlits(ctx,canvas.width,canvas.height,angle);} clear(insetCtx,insetCanvas.width,insetCanvas.height);
+  } else {
+    // realistic full background mode
+    ctx.drawImage(frameImg,0,0,canvas.width,canvas.height);
+    ctx.save(); ctx.globalAlpha=0.85; drawReflectedThroughSlits(ctx,canvas.width,canvas.height,angle); ctx.restore();
+    // inset window
+    clear(insetCtx,insetCanvas.width,insetCanvas.height);
+    insetCtx.save(); insetCtx.beginPath(); insetCtx.arc(insetCanvas.width/2,insetCanvas.height/2,insetCanvas.width/2,0,Math.PI*2); insetCtx.clip(); drawReflectedThroughSlits(insetCtx,insetCanvas.width,insetCanvas.height,angle); insetCtx.restore();
+  }
+  requestAnimationFrame(loop);
+}
+
+selectExample(0);
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
