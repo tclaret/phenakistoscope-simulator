@@ -1,88 +1,59 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Phenakistoscope simulator</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Phenakistoscope Simulator (Fixed Load Image)</title>
 <style>
-  :root{ --bg:#0f1724; --card:#0b1220; --muted:#9aa7bf; }
-  body{font-family:Inter,system-ui,Segoe UI,Roboto,Arial; background:linear-gradient(180deg,#071029 0%, #0b1220 100%); color:#e6eef8; margin:0; padding:20px;}
-  .wrap{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:360px 1fr;gap:20px;align-items:start}
-  .panel{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); padding:16px;border-radius:12px;box-shadow:0 6px 30px rgba(2,6,23,0.6)}
-  h1{margin:0 0 8px;font-size:20px}
-  label{display:block;margin:12px 0 6px;color:var(--muted);font-size:13px}
-  select,input[type=text],input[type=range],button{width:100%;box-sizing:border-box;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:inherit}
-  .viewer{position:relative;display:flex;justify-content:center;align-items:center;height:560px}
-  canvas{background:#07111b;border-radius:6px;transition:all 0.3s ease}
-  .insetCanvas{position:absolute;bottom:16px;right:16px;width:180px;height:180px;border-radius:50%;overflow:hidden;border:3px solid rgba(255,255,255,0.1);box-shadow:0 0 10px rgba(0,0,0,0.5);}
-  .controls{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-  .row{display:flex;gap:8px}
-  .note{font-size:12px;color:var(--muted);margin-top:8px}
-  .small{font-size:13px}
-  .examples{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-  .thumb{width:72px;height:72px;border-radius:8px;overflow:hidden;cursor:pointer;border:2px solid transparent}
-  .thumb img{width:100%;height:100%;object-fit:cover}
-  .thumb.selected{border-color:#6ee7b7}
-  footer{margin-top:14px;color:var(--muted);font-size:12px}
+  body {
+    background: #111;
+    color: #eee;
+    font-family: monospace;
+    text-align: center;
+    margin: 0;
+    padding: 20px;
+  }
+  canvas {
+    background: #000;
+    border: 2px solid #555;
+    border-radius: 50%;
+    display: block;
+    margin: 20px auto;
+  }
+  .controls {
+    margin-bottom: 10px;
+  }
+  button, input[type="file"], input[type="text"] {
+    margin: 4px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid #555;
+    background: #222;
+    color: #eee;
+  }
+  #statusMessage {
+    color: #ccc;
+    font-size: 14px;
+    margin-top: 8px;
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="panel">
-    <h1>Phenakistoscope simulator</h1>
-    <div class="note">Switch between simulation and realistic view modes. Upload or paste ACMI disc images, then adjust speed and slits.</div>
+<h1>Phenakistoscope Simulator (Fixed Load Image)</h1>
 
-    <div class="row" style="margin-bottom:12px">
-      <button id="switchView">Switch View (Simulation)</button>
-      <button id="pause">Pause</button>
-      <button id="reset">Reset</button>
-    </div>
-
-    <label>Built-in examples</label>
-    <div class="examples" id="examples"></div>
-
-    <label class="small">Image URL</label>
-    <input id="imgUrl" type="text" placeholder="https://...jpg or png" />
-    <div class="row">
-      <input id="loadUrl" type="button" value="Load URL" />
-      <input id="upload" type="file" accept="image/*" />
-    </div>
-
-    <label>Rotation speed (rotations per second)</label>
-    <input id="speed" type="range" min="0" max="6" step="0.05" value="2" />
-    <div class="controls">
-      <div>
-        <label>Number of slits</label>
-        <input id="slits" type="range" min="4" max="48" step="1" value="12" />
-      </div>
-      <div>
-        <label>Slit width (degrees)</label>
-        <input id="slitWidth" type="range" min="1" max="40" step="1" value="6" />
-      </div>
-    </div>
-
-    <label>View options</label>
-    <div class="controls">
-      <div>
-        <label><input id="mirror" type="checkbox" checked/> Mirror</label>
-      </div>
-      <div>
-        <label><input id="showDisc" type="checkbox" checked/> Show spinning disc</label>
-      </div>
-    </div>
-
-    <footer>View modes: Simulation or Realistic (with your uploaded frame background).</footer>
-  </div>
-
-  <div class="panel viewer">
-    <canvas id="canvas" width="720" height="720"></canvas>
-    <canvas id="insetCanvas" class="insetCanvas" width="200" height="200"></canvas>
-  </div>
+<div class="controls">
+  <input type="file" id="fileInput" accept="image/*" />
+  <input type="text" id="imageUrlInput" placeholder="Enter image URL" size="40" />
+  <button id="loadUrlBtn">Load URL</button>
+  <button id="viewSwitchBtn">Switch View (Simulation / Realistic)</button>
+  <button id="insetToggleBtn">Toggle Inset Window</button>
 </div>
 
-</body>
+<canvas id="phenakistoscopeCanvas" width="800" height="800"></canvas>
+<p id="statusMessage">Ready.</p>
+
 <script>
-console.log("Phenakistoscope Simulator - Debug Version Starting...");
+console.log("Phenakistoscope Simulator - Fixed Version Starting...");
 
 const canvas = document.getElementById('phenakistoscopeCanvas');
 const ctx = canvas.getContext('2d');
@@ -101,7 +72,6 @@ let rotation = 0;
 let viewMode = "simulation";
 let showInset = false;
 
-// ---- DRAWING FUNCTIONS ----
 function drawSimulation() {
   ctx.save();
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -159,30 +129,27 @@ function animate() {
 }
 animate();
 
-// ---- IMAGE LOADERS ----
-
-// ✅ File upload via FileReader
+// ✅ File upload via FileReader (base64 Data URL)
 fileInput.addEventListener("change", function (e) {
   const file = e.target.files[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = (event) => {
-    const img = new Image();
-    img.onload = () => {
-      image = img;
-      statusMessage.textContent = `✅ Loaded local image: ${file.name}`;
+    image = new Image();
+    image.onload = () => {
+      statusMessage.textContent = `✅ Loaded image: ${file.name}`;
       console.log("Loaded local image:", file.name);
     };
-    img.src = event.target.result;
+    image.src = event.target.result; // Base64 Data URL works online
   };
   reader.onerror = () => {
-    statusMessage.textContent = "❌ Error reading file.";
+    statusMessage.textContent = "❌ Failed to load image.";
     console.error("FileReader error");
   };
   reader.readAsDataURL(file);
 });
 
-// ✅ URL loader (with CORS-safe error)
+// ✅ Load image from URL
 loadUrlBtn.addEventListener("click", function () {
   const url = imageUrlInput.value.trim();
   if (!url) {
@@ -204,7 +171,6 @@ loadUrlBtn.addEventListener("click", function () {
   img.src = url;
 });
 
-// ---- CONTROLS ----
 viewSwitchBtn.addEventListener("click", () => {
   viewMode = viewMode === "simulation" ? "realistic" : "simulation";
   statusMessage.textContent = `🔄 Switched to ${viewMode} view.`;
@@ -217,6 +183,5 @@ insetToggleBtn.addEventListener("click", () => {
   console.log("Inset window:", showInset);
 });
 </script>
-
+</body>
 </html>
-
