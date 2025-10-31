@@ -102,6 +102,7 @@
 <p id="statusMessage">Ready.</p>
 
 <script>
+    window.onload = function () {
 console.log("Phenakistoscope Simulator - Retro Instrument Panel Loaded");
 
 const canvas = document.getElementById('phenakistoscopeCanvas');
@@ -243,6 +244,7 @@ speedSlider.addEventListener("input", () => {
   rotationSpeed = parseFloat(speedSlider.value);
   speedValue.textContent = rotationSpeed.toFixed(3);
 });
+};
 </script>
 </body>
 </html>
