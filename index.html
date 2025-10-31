@@ -80,69 +80,143 @@
   </div>
 </div>
 
+</body>
 <script>
-const examples = [
-  {name:'Simple dancer', url:'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600"><rect width="100%" height="100%" fill="#07111b"/><g transform="translate(300,300)">${[...Array(12)].map((_,i)=>`<g transform="rotate(${i*30}) translate(150)"><circle r="36" fill="none" stroke="#e6eef8" stroke-width="6" opacity="${0.6 - (i/18)}"/></g>`).join('')}</g></svg>`)}
-];
+console.log("Phenakistoscope Simulator - Debug Version Starting...");
 
-const examplesEl = document.getElementById('examples');
-examples.forEach((ex,idx)=>{
-  const el = document.createElement('div'); el.className='thumb'; el.title=ex.name; el.innerHTML = `<img src="${ex.url}" alt="${ex.name}">`;
-  el.addEventListener('click', ()=>{selectExample(idx);});
-  examplesEl.appendChild(el);
-});
-
-let selectedExample = null;
-function selectExample(i){ selectedExample = i; document.querySelectorAll('.thumb').forEach((t,idx)=>t.classList.toggle('selected', idx===i)); loadImage(examples[i].url); }
-
-const canvas = document.getElementById('canvas');
+const canvas = document.getElementById('phenakistoscopeCanvas');
 const ctx = canvas.getContext('2d');
-const insetCanvas = document.getElementById('insetCanvas');
-const insetCtx = insetCanvas.getContext('2d');
-let img = null;
-let angle = 0;
-let last = performance.now();
-let running = true;
-let viewMode = 'simulation';
-let frameImg = new Image();
-frameImg.src = '9965f708-6fd1-43a3-8b4a-9b29a187c1f8.png';
+const fileInput = document.getElementById('fileInput');
+const imageUrlInput = document.getElementById('imageUrlInput');
+const loadUrlBtn = document.getElementById('loadUrlBtn');
+const viewSwitchBtn = document.getElementById('viewSwitchBtn');
+const insetToggleBtn = document.getElementById('insetToggleBtn');
+const statusMessage = document.getElementById('statusMessage');
 
-function loadImage(src){ const i = new Image(); i.crossOrigin='anonymous'; i.onload=()=>{ img=i; }; i.src=src; }
+let image = new Image();
+let realisticBackground = new Image();
+realisticBackground.src = "9965f708-6fd1-43a3-8b4a-9b29a187c1f8.png";
 
-function clear(ctx,w,h){ ctx.clearRect(0,0,w,h); }
-function drawDisc(ctx,w,h,theta){ if(!img)return; const cx=w/2, cy=h/2; ctx.save(); ctx.translate(cx,cy); ctx.rotate(theta); const s=Math.min(w*0.9/img.width,h*0.9/img.height); const ww=img.width*s,hh=img.height*s; ctx.drawImage(img,-ww/2,-hh/2,ww,hh); ctx.restore(); }
-function drawReflectedThroughSlits(ctx,w,h,theta){ if(!img)return; const slits=parseInt(slitsEl.value,10); const slitDeg=parseFloat(slitWidthEl.value); const off=document.createElement('canvas'); off.width=w; off.height=h; const octx=off.getContext('2d'); octx.translate(w/2,h/2); if(mirrorEl.checked)octx.scale(-1,1); octx.rotate(theta); const s=Math.min(w*0.9/img.width,h*0.9/img.height); const ww=img.width*s,hh=img.height*s; octx.drawImage(img,-ww/2,-hh/2,ww,hh); const mask=document.createElement('canvas'); mask.width=w; mask.height=h; const mctx=mask.getContext('2d'); mctx.translate(w/2,h/2); for(let i=0;i<slits;i++){ const a=(i*2*Math.PI/slits)-0.5*(slitDeg*Math.PI/180); const aw=slitDeg*Math.PI/180; mctx.beginPath(); mctx.moveTo(0,0); mctx.arc(0,0,Math.max(w,h),a,a+aw); mctx.closePath(); mctx.fillStyle='white'; mctx.fill(); } octx.globalCompositeOperation='destination-in'; octx.drawImage(mask,-w/2,-h/2); ctx.drawImage(off,0,0); }
+let rotation = 0;
+let viewMode = "simulation";
+let showInset = false;
 
-const speedEl=document.getElementById('speed');
-const slitsEl=document.getElementById('slits');
-const slitWidthEl=document.getElementById('slitWidth');
-const mirrorEl=document.getElementById('mirror');
-const showDiscEl=document.getElementById('showDisc');
-const pauseBtn=document.getElementById('pause');
-const resetBtn=document.getElementById('reset');
-const switchBtn=document.getElementById('switchView');
-
-pauseBtn.onclick=()=>{ running=!running; pauseBtn.textContent=running?'Pause':'Resume'; if(running){ last=performance.now(); requestAnimationFrame(loop);} };
-resetBtn.onclick=()=>{ angle=0; };
-switchBtn.onclick=()=>{ viewMode=(viewMode==='simulation'?'realistic':'simulation'); switchBtn.textContent=`Switch View (${viewMode==='simulation'?'Simulation':'Realistic'})`; };
-
-function loop(ts){ if(!running)return; const dt=(ts-last)/1000; last=ts; angle+=dt*parseFloat(speedEl.value)*2*Math.PI; clear(ctx,canvas.width,canvas.height);
-  if(viewMode==='simulation'){
-    if(showDiscEl.checked && img){drawDisc(ctx,canvas.width,canvas.height,angle);} if(img){drawReflectedThroughSlits(ctx,canvas.width,canvas.height,angle);} clear(insetCtx,insetCanvas.width,insetCanvas.height);
-  } else {
-    // realistic full background mode
-    ctx.drawImage(frameImg,0,0,canvas.width,canvas.height);
-    ctx.save(); ctx.globalAlpha=0.85; drawReflectedThroughSlits(ctx,canvas.width,canvas.height,angle); ctx.restore();
-    // inset window
-    clear(insetCtx,insetCanvas.width,insetCanvas.height);
-    insetCtx.save(); insetCtx.beginPath(); insetCtx.arc(insetCanvas.width/2,insetCanvas.height/2,insetCanvas.width/2,0,Math.PI*2); insetCtx.clip(); drawReflectedThroughSlits(insetCtx,insetCanvas.width,insetCanvas.height,angle); insetCtx.restore();
+// ---- DRAWING FUNCTIONS ----
+function drawSimulation() {
+  ctx.save();
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.translate(canvas.width / 2, canvas.height / 2);
+  ctx.rotate(rotation);
+  if (image && image.complete && image.naturalWidth > 0) {
+    ctx.drawImage(image, -canvas.width / 2, -canvas.height / 2, canvas.width, canvas.height);
   }
-  requestAnimationFrame(loop);
+  ctx.restore();
 }
 
-selectExample(0);
-requestAnimationFrame(loop);
+function drawRealistic() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (realisticBackground.complete && realisticBackground.naturalWidth > 0) {
+    ctx.drawImage(realisticBackground, 0, 0, canvas.width, canvas.height);
+  }
+  ctx.save();
+  ctx.translate(canvas.width / 2, canvas.height / 2);
+  ctx.rotate(rotation);
+  ctx.beginPath();
+  ctx.arc(0, 0, canvas.width / 3, 0, Math.PI * 2);
+  ctx.clip();
+  if (image && image.complete && image.naturalWidth > 0) {
+    ctx.drawImage(image, -canvas.width / 3, -canvas.height / 3, (canvas.width / 3) * 2, (canvas.height / 3) * 2);
+  }
+  ctx.restore();
+}
+
+function drawInset() {
+  if (!showInset) return;
+  const size = 200;
+  const x = canvas.width - size - 20;
+  const y = 20;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.translate(x + size / 2, y + size / 2);
+  ctx.rotate(rotation);
+  if (image && image.complete && image.naturalWidth > 0) {
+    ctx.drawImage(image, -size / 2, -size / 2, size, size);
+  }
+  ctx.restore();
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x, y, size, size);
+}
+
+function animate() {
+  rotation += 0.02;
+  if (viewMode === "simulation") drawSimulation();
+  else drawRealistic();
+  drawInset();
+  requestAnimationFrame(animate);
+}
+animate();
+
+// ---- IMAGE LOADERS ----
+
+// ✅ File upload via FileReader
+fileInput.addEventListener("change", function (e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    const img = new Image();
+    img.onload = () => {
+      image = img;
+      statusMessage.textContent = `✅ Loaded local image: ${file.name}`;
+      console.log("Loaded local image:", file.name);
+    };
+    img.src = event.target.result;
+  };
+  reader.onerror = () => {
+    statusMessage.textContent = "❌ Error reading file.";
+    console.error("FileReader error");
+  };
+  reader.readAsDataURL(file);
+});
+
+// ✅ URL loader (with CORS-safe error)
+loadUrlBtn.addEventListener("click", function () {
+  const url = imageUrlInput.value.trim();
+  if (!url) {
+    statusMessage.textContent = "⚠️ Please enter an image URL.";
+    console.warn("No URL provided");
+    return;
+  }
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  img.onload = () => {
+    image = img;
+    statusMessage.textContent = `✅ Image loaded from URL: ${url}`;
+    console.log("Loaded image from URL:", url);
+  };
+  img.onerror = () => {
+    statusMessage.textContent = "❌ Could not load image (CORS restriction).";
+    console.error("Failed to load image:", url);
+  };
+  img.src = url;
+});
+
+// ---- CONTROLS ----
+viewSwitchBtn.addEventListener("click", () => {
+  viewMode = viewMode === "simulation" ? "realistic" : "simulation";
+  statusMessage.textContent = `🔄 Switched to ${viewMode} view.`;
+  console.log("Switched to", viewMode);
+});
+
+insetToggleBtn.addEventListener("click", () => {
+  showInset = !showInset;
+  statusMessage.textContent = showInset ? "🟢 Inset window shown." : "⚪ Inset window hidden.";
+  console.log("Inset window:", showInset);
+});
 </script>
-</body>
+
 </html>
 
