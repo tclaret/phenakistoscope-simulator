@@ -153,7 +153,6 @@ function drawRealistic() {
   ctx.arc(0, 0, canvas.width / 3, 0, Math.PI * 2);
   ctx.clip();
   if (image && image.complete && image.naturalWidth > 0) {
-    ctx.drawImage(image, -canvas.width / 3, -canv
   ctx.drawImage(image, -canvas.width / 3, -canvas.height / 3, (canvas.width / 3) * 2, (canvas.height / 3) * 2);
   }
   ctx.restore();
