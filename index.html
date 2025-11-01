@@ -29,7 +29,7 @@
     box-shadow: inset 0 2px 6px rgba(0,0,0,0.6), 0 2px 10px rgba(0,0,0,0.5);
     display: inline-block;
   }
-  button, input[type="file"], input[type="text"], input[type="range"] {
+  button, input[type="file"], input[type="text"], input[type="range"], select {
     margin: 4px;
     padding: 6px 10px;
     border-radius: 8px;
@@ -72,7 +72,7 @@
     margin-left: 5px;
     color: #0f0;
   }
-</style>
+</style>    
 </head>
 <body>
 <h1>Phenakistoscope Simulator 🎞️</h1>
@@ -90,11 +90,21 @@
     <button id="startStopBtn">▶️ Start</button>
     <div class="indicator" id="indicator"></div>
     <button id="resetBtn">🔁 Reset</button>
+    <button id="stepLeftBtn">⟲ Step Left</button>
+    <button id="stepRightBtn">⟳ Step Right</button>
+    <button id="directionBtn">↺ Direction: CW</button>
     <div class="speed-control">
       <label for="speedSlider">Speed:</label>
       <input type="range" id="speedSlider" min="0.001" max="0.1" step="0.001" value="0.02" />
       <span class="speed-value" id="speedValue">0.020</span>
     </div>
+    <label for="autoStopSelect">Auto-stop:</label>
+    <select id="autoStopSelect">
+      <option value="0">Off</option>
+      <option value="5">5s</option>
+      <option value="10">10s</option>
+      <option value="30">30s</option>
+    </select>
   </div>
 </div>
 
@@ -102,147 +112,179 @@
 <p id="statusMessage">Ready.</p>
 
 <script>
-    window.onload = function () {
-console.log("Phenakistoscope Simulator - Retro Instrument Panel Loaded");
+window.onload = function () {
+  const canvas = document.getElementById('phenakistoscopeCanvas');
+  const ctx = canvas.getContext('2d');
+  const fileInput = document.getElementById('fileInput');
+  const imageUrlInput = document.getElementById('imageUrlInput');
+  const loadUrlBtn = document.getElementById('loadUrlBtn');
+  const viewSwitchBtn = document.getElementById('viewSwitchBtn');
+  const insetToggleBtn = document.getElementById('insetToggleBtn');
+  const statusMessage = document.getElementById('statusMessage');
+  const startStopBtn = document.getElementById('startStopBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const stepLeftBtn = document.getElementById('stepLeftBtn');
+  const stepRightBtn = document.getElementById('stepRightBtn');
+  const directionBtn = document.getElementById('directionBtn');
+  const indicator = document.getElementById('indicator');
+  const speedSlider = document.getElementById('speedSlider');
+  const speedValue = document.getElementById('speedValue');
+  const autoStopSelect = document.getElementById('autoStopSelect');
 
-const canvas = document.getElementById('phenakistoscopeCanvas');
-const ctx = canvas.getContext('2d');
-const fileInput = document.getElementById('fileInput');
-const imageUrlInput = document.getElementById('imageUrlInput');
-const loadUrlBtn = document.getElementById('loadUrlBtn');
-const viewSwitchBtn = document.getElementById('viewSwitchBtn');
-const insetToggleBtn = document.getElementById('insetToggleBtn');
-const statusMessage = document.getElementById('statusMessage');
+  let image = new Image();
+  let realisticBackground = new Image();
+  realisticBackground.src = "9965f708-6fd1-43a3-8b4a-9b29a187c1f8.png";
 
-const startStopBtn = document.getElementById('startStopBtn');
-const resetBtn = document.getElementById('resetBtn');
-const indicator = document.getElementById('indicator');
-const speedSlider = document.getElementById('speedSlider');
-const speedValue = document.getElementById('speedValue');
+  let rotation = 0;
+  let viewMode = "simulation";
+  let showInset = false;
+  let isRunning = false;
+  let rotationSpeed = parseFloat(speedSlider.value);
+  let direction = 1; // 1 = CW, -1 = CCW
+  let autoStopTimer = null;
 
-let image = new Image();
-let realisticBackground = new Image();
-realisticBackground.src = "9965f708-6fd1-43a3-8b4a-9b29a187c1f8.png";
-
-let rotation = 0;
-let viewMode = "simulation";
-let showInset = false;
-let isRunning = false;
-let rotationSpeed = parseFloat(speedSlider.value);
-
-function drawSimulation() {
-  ctx.save();
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.translate(canvas.width / 2, canvas.height / 2);
-  ctx.rotate(rotation);
-  if (image && image.complete && image.naturalWidth > 0) {
-    ctx.drawImage(image, -canvas.width / 2, -canvas.height / 2, canvas.width, canvas.height);
+  function drawSimulation() {
+    ctx.save();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.rotate(rotation);
+    if (image && image.complete && image.naturalWidth > 0) {
+      ctx.drawImage(image, -canvas.width / 2, -canvas.height / 2, canvas.width, canvas.height);
+    }
+    ctx.restore();
   }
-  ctx.restore();
-}
 
-function drawRealistic() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  if (realisticBackground.complete && realisticBackground.naturalWidth > 0) {
-    ctx.drawImage(realisticBackground, 0, 0, canvas.width, canvas.height);
+  function drawRealistic() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (realisticBackground.complete && realisticBackground.naturalWidth > 0) {
+      ctx.drawImage(realisticBackground, 0, 0, canvas.width, canvas.height);
+    }
+    ctx.save();
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.rotate(rotation);
+    ctx.beginPath();
+    ctx.arc(0, 0, canvas.width / 3, 0, Math.PI * 2);
+    ctx.clip();
+    if (image && image.complete && image.naturalWidth > 0) {
+      ctx.drawImage(image, -canvas.width / 3, -canvas.height / 3, (canvas.width / 3) * 2, (canvas.height / 3) * 2);
+    }
+    ctx.restore();
   }
-  ctx.save();
-  ctx.translate(canvas.width / 2, canvas.height / 2);
-  ctx.rotate(rotation);
-  ctx.beginPath();
-  ctx.arc(0, 0, canvas.width / 3, 0, Math.PI * 2);
-  ctx.clip();
-  if (image && image.complete && image.naturalWidth > 0) {
-  ctx.drawImage(image, -canvas.width / 3, -canvas.height / 3, (canvas.width / 3) * 2, (canvas.height / 3) * 2);
+
+  function drawInset() {
+    if (!showInset) return;
+    const size = 200;
+    const x = canvas.width - size - 20;
+    const y = 20;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.translate(x + size / 2, y + size / 2);
+    ctx.rotate(rotation);
+    if (image && image.complete && image.naturalWidth > 0) {
+      ctx.drawImage(image, -size / 2, -size / 2, size, size);
+    }
+    ctx.restore();
+    ctx.strokeStyle = "#0f0";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x, y, size, size);
   }
-  ctx.restore();
-}
 
-function drawInset() {
-  if (!showInset) return;
-  const size = 200;
-  const x = canvas.width - size - 20;
-  const y = 20;
-  ctx.save();
-  ctx.beginPath();
-  ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
-  ctx.clip();
-  ctx.translate(x + size / 2, y + size / 2);
-  ctx.rotate(rotation);
-  if (image && image.complete && image.naturalWidth > 0) {
-    ctx.drawImage(image, -size / 2, -size / 2, size, size);
+  function animate() {
+    if (isRunning) rotation += direction * rotationSpeed;
+    if (viewMode === "simulation") drawSimulation();
+    else drawRealistic();
+    drawInset();
+    requestAnimationFrame(animate);
   }
-  ctx.restore();
-  ctx.strokeStyle = "#0f0";
-  ctx.lineWidth = 2;
-  ctx.strokeRect(x, y, size, size);
-}
+  animate();
 
-function animate() {
-  if (isRunning) rotation += rotationSpeed;
-  if (viewMode === "simulation") drawSimulation();
-  else drawRealistic();
-  drawInset();
-  requestAnimationFrame(animate);
-}
-animate();
-
-fileInput.addEventListener("change", function (e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (event) => {
-    image = new Image();
-    image.onload = () => {
-      statusMessage.textContent = `✅ Loaded image: ${file.name}`;
-      console.log("Loaded local image:", file.name);
+  // Image Loading
+  fileInput.addEventListener("change", function (e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      image = new Image();
+      image.onload = () => {
+        statusMessage.textContent = `✅ Loaded image: ${file.name}`;
+      };
+      image.src = event.target.result;
     };
-    image.src = event.target.result;
-  };
-  reader.readAsDataURL(file);
-});
+    reader.readAsDataURL(file);
+  });
 
-loadUrlBtn.addEventListener("click", function () {
-  const url = imageUrlInput.value.trim();
-  if (!url) return;
-  const img = new Image();
-  img.crossOrigin = "anonymous";
-  img.onload = () => {
-    image = img;
-    statusMessage.textContent = `✅ Image loaded from URL: ${url}`;
-  };
-  img.onerror = () => {
-    statusMessage.textContent = "❌ Could not load image (CORS restriction).";
-  };
-  img.src = url;
-});
+  loadUrlBtn.addEventListener("click", function () {
+    const url = imageUrlInput.value.trim();
+    if (!url) return;
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      image = img;
+      statusMessage.textContent = `✅ Image loaded from URL: ${url}`;
+    };
+    img.onerror = () => {
+      statusMessage.textContent = "❌ Could not load image (CORS restriction).";
+    };
+    img.src = url;
+  });
 
-viewSwitchBtn.addEventListener("click", () => {
-  viewMode = viewMode === "simulation" ? "realistic" : "simulation";
-  statusMessage.textContent = `🔄 Switched to ${viewMode} view.`;
-});
+  viewSwitchBtn.addEventListener("click", () => {
+    viewMode = viewMode === "simulation" ? "realistic" : "simulation";
+    statusMessage.textContent = `🔄 Switched to ${viewMode} view.`;
+  });
 
-insetToggleBtn.addEventListener("click", () => {
-  showInset = !showInset;
-  statusMessage.textContent = showInset ? "🟢 Inset window shown." : "⚪ Inset window hidden.";
-});
+  insetToggleBtn.addEventListener("click", () => {
+    showInset = !showInset;
+    statusMessage.textContent = showInset ? "🟢 Inset window shown." : "⚪ Inset window hidden.";
+  });
 
-startStopBtn.addEventListener("click", () => {
-  isRunning = !isRunning;
-  indicator.classList.toggle("on", isRunning);
-  startStopBtn.textContent = isRunning ? "⏸ Stop" : "▶️ Start";
-  statusMessage.textContent = isRunning ? "🟢 Rotation started." : "⏸ Rotation paused.";
-});
+  startStopBtn.addEventListener("click", () => {
+    isRunning = !isRunning;
+    indicator.classList.toggle("on", isRunning);
+    startStopBtn.textContent = isRunning ? "⏸ Stop" : "▶️ Start";
+    statusMessage.textContent = isRunning ? "🟢 Rotation started." : "⏸ Rotation paused.";
 
-resetBtn.addEventListener("click", () => {
-  rotation = 0;
-  statusMessage.textContent = "🔁 Rotation reset.";
-});
+    if (isRunning) {
+      clearTimeout(autoStopTimer);
+      const duration = parseInt(autoStopSelect.value);
+      if (duration > 0) {
+        autoStopTimer = setTimeout(() => {
+          isRunning = false;
+          indicator.classList.remove("on");
+          startStopBtn.textContent = "▶️ Start";
+          statusMessage.textContent = `⏹ Auto-stopped after ${duration}s.`;
+        }, duration * 1000);
+      }
+    }
+  });
 
-speedSlider.addEventListener("input", () => {
-  rotationSpeed = parseFloat(speedSlider.value);
-  speedValue.textContent = rotationSpeed.toFixed(3);
-});
+  resetBtn.addEventListener("click", () => {
+    rotation = 0;
+    statusMessage.textContent = "🔁 Rotation reset.";
+  });
+
+  stepLeftBtn.addEventListener("click", () => {
+    rotation -= 0.1;
+    statusMessage.textContent = "⟲ Stepped left.";
+  });
+
+  stepRightBtn.addEventListener("click", () => {
+    rotation += 0.1;
+    statusMessage.textContent = "⟳ Stepped right.";
+  });
+
+  directionBtn.addEventListener("click", () => {
+    direction *= -1;
+    directionBtn.textContent = direction === 1 ? "↺ Direction: CW" : "↻ Direction: CCW";
+    statusMessage.textContent = direction === 1 ? "➡️ Clockwise rotation." : "⬅️ Counterclockwise rotation.";
+  });
+
+  speedSlider.addEventListener("input", () => {
+    rotationSpeed = parseFloat(speedSlider.value);
+    speedValue.textContent = rotationSpeed.toFixed(3);
+  });
 };
 </script>
 </body>
