@@ -72,7 +72,7 @@
     margin-left: 5px;
     color: #0f0;
   }
-</style>    
+</style>
 </head>
 <body>
 <h1>Phenakistoscope Simulator 🎞️</h1>
@@ -82,8 +82,6 @@
     <input type="file" id="fileInput" accept="image/*" />
     <input type="text" id="imageUrlInput" placeholder="Enter image URL" size="30" />
     <button id="loadUrlBtn">Load URL</button>
-    <button id="viewSwitchBtn">Switch View</button>
-    <button id="insetToggleBtn">Toggle Inset</button>
   </div>
   <hr style="border:1px solid #333">
   <div>
@@ -118,8 +116,6 @@ window.onload = function () {
   const fileInput = document.getElementById('fileInput');
   const imageUrlInput = document.getElementById('imageUrlInput');
   const loadUrlBtn = document.getElementById('loadUrlBtn');
-  const viewSwitchBtn = document.getElementById('viewSwitchBtn');
-  const insetToggleBtn = document.getElementById('insetToggleBtn');
   const statusMessage = document.getElementById('statusMessage');
   const startStopBtn = document.getElementById('startStopBtn');
   const resetBtn = document.getElementById('resetBtn');
@@ -132,137 +128,69 @@ window.onload = function () {
   const autoStopSelect = document.getElementById('autoStopSelect');
 
   let image = new Image();
-  let realisticBackground = new Image();
-  realisticBackground.src = "9965f708-6fd1-43a3-8b4a-9b29a187c1f8.png";
+  image.crossOrigin = "anonymous";
+  image.src = "https://tclaret.github.io/phenakistoscope-simulator/McLean_1.png";
+  image.onload = () => statusMessage.textContent = "✅ Default image loaded (McLean_1.png)";
 
   let rotation = 0;
-  let viewMode = "simulation";
-  let showInset = false;
   let isRunning = false;
   let rotationSpeed = parseFloat(speedSlider.value);
   let direction = 1; // 1 = CW, -1 = CCW
+  let frameCount = 12;
+  let currentFrame = 0;
   let autoStopTimer = null;
-let frameCount = 12; // number of frames around the disk
-let currentFrame = 0;
 
-// draw a mirror-simulated phenakistoscope
-function drawPhenakistoscopeMirror() {
-  ctx.save();
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  // Draw mirror background
-  ctx.fillStyle = "#111";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  ctx.translate(canvas.width / 2, canvas.height / 2);
-  ctx.scale(-1, 1); // Mirror horizontally
-  ctx.rotate(rotation);
-
-  const anglePerFrame = (2 * Math.PI) / frameCount;
-  const startAngle = currentFrame * anglePerFrame;
-  const endAngle = startAngle + anglePerFrame;
-
-  // Clip to one “slit frame” region
-  ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.arc(0, 0, canvas.width / 2, startAngle, endAngle);
-  ctx.closePath();
-  ctx.clip();
-
-  if (image && image.complete && image.naturalWidth > 0) {
-    ctx.drawImage(image, -canvas.width / 2, -canvas.height / 2, canvas.width, canvas.height);
-  }
-
-  ctx.restore();
-
-  // Optional: draw outer mask to suggest slits
-  ctx.save();
-  ctx.strokeStyle = "#0f0";
-  ctx.lineWidth = 1.2;
-  for (let i = 0; i < frameCount; i++) {
-    const a = (i / frameCount) * 2 * Math.PI;
-    const x = canvas.width / 2 + Math.cos(a) * (canvas.width / 2 - 10);
-    const y = canvas.height / 2 + Math.sin(a) * (canvas.height / 2 - 10);
-    ctx.beginPath();
-    ctx.moveTo(canvas.width / 2, canvas.height / 2);
-    ctx.lineTo(x, y);
-    ctx.stroke();
-  }
-  ctx.restore();
-}
-
-function animate() {
-  if (isRunning) {
-    rotation += direction * rotationSpeed;
-    currentFrame = (currentFrame + 1) % frameCount;
-  }
-
-  if (viewMode === "simulation") drawPhenakistoscopeMirror();
-  else drawRealistic();
-  drawInset();
-
-  requestAnimationFrame(animate);
-}
-
-  function drawSimulation() {
+  function drawPhenakistoscopeMirror() {
     ctx.save();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
     ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.scale(-1, 1); // mirror horizontally
     ctx.rotate(rotation);
-    if (image && image.complete && image.naturalWidth > 0) {
+
+    const anglePerFrame = (2 * Math.PI) / frameCount;
+    const startAngle = currentFrame * anglePerFrame;
+    const endAngle = startAngle + anglePerFrame;
+
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, canvas.width / 2, startAngle, endAngle);
+    ctx.closePath();
+    ctx.clip();
+
+    if (image.complete && image.naturalWidth > 0) {
       ctx.drawImage(image, -canvas.width / 2, -canvas.height / 2, canvas.width, canvas.height);
     }
     ctx.restore();
-  }
 
-  function drawRealistic() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if (realisticBackground.complete && realisticBackground.naturalWidth > 0) {
-      ctx.drawImage(realisticBackground, 0, 0, canvas.width, canvas.height);
-    }
+    // draw slit mask
     ctx.save();
-    ctx.translate(canvas.width / 2, canvas.height / 2);
-    ctx.rotate(rotation);
-    ctx.beginPath();
-    ctx.arc(0, 0, canvas.width / 3, 0, Math.PI * 2);
-    ctx.clip();
-    if (image && image.complete && image.naturalWidth > 0) {
-      ctx.drawImage(image, -canvas.width / 3, -canvas.height / 3, (canvas.width / 3) * 2, (canvas.height / 3) * 2);
-    }
-    ctx.restore();
-  }
-
-  function drawInset() {
-    if (!showInset) return;
-    const size = 200;
-    const x = canvas.width - size - 20;
-    const y = 20;
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
-    ctx.clip();
-    ctx.translate(x + size / 2, y + size / 2);
-    ctx.rotate(rotation);
-    if (image && image.complete && image.naturalWidth > 0) {
-      ctx.drawImage(image, -size / 2, -size / 2, size, size);
-    }
-    ctx.restore();
     ctx.strokeStyle = "#0f0";
-    ctx.lineWidth = 2;
-    ctx.strokeRect(x, y, size, size);
+    ctx.lineWidth = 1.2;
+    for (let i = 0; i < frameCount; i++) {
+      const a = (i / frameCount) * 2 * Math.PI;
+      const x = canvas.width / 2 + Math.cos(a) * (canvas.width / 2 - 10);
+      const y = canvas.height / 2 + Math.sin(a) * (canvas.height / 2 - 10);
+      ctx.beginPath();
+      ctx.moveTo(canvas.width / 2, canvas.height / 2);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   function animate() {
-    if (isRunning) rotation += direction * rotationSpeed;
-    if (viewMode === "simulation") drawSimulation();
-    else drawRealistic();
-    drawInset();
+    if (isRunning) {
+      rotation += direction * rotationSpeed;
+      currentFrame = (currentFrame + 1) % frameCount;
+    }
+    drawPhenakistoscopeMirror();
     requestAnimationFrame(animate);
   }
   animate();
 
-  // Image Loading
-  fileInput.addEventListener("change", function (e) {
+  // Load from file
+  fileInput.addEventListener("change", (e) => {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
@@ -276,7 +204,8 @@ function animate() {
     reader.readAsDataURL(file);
   });
 
-  loadUrlBtn.addEventListener("click", function () {
+  // Load from URL
+  loadUrlBtn.addEventListener("click", () => {
     const url = imageUrlInput.value.trim();
     if (!url) return;
     const img = new Image();
@@ -291,16 +220,7 @@ function animate() {
     img.src = url;
   });
 
-  viewSwitchBtn.addEventListener("click", () => {
-    viewMode = viewMode === "simulation" ? "realistic" : "simulation";
-    statusMessage.textContent = `🔄 Switched to ${viewMode} view.`;
-  });
-
-  insetToggleBtn.addEventListener("click", () => {
-    showInset = !showInset;
-    statusMessage.textContent = showInset ? "🟢 Inset window shown." : "⚪ Inset window hidden.";
-  });
-
+  // Start/Stop
   startStopBtn.addEventListener("click", () => {
     isRunning = !isRunning;
     indicator.classList.toggle("on", isRunning);
@@ -323,6 +243,7 @@ function animate() {
 
   resetBtn.addEventListener("click", () => {
     rotation = 0;
+    currentFrame = 0;
     statusMessage.textContent = "🔁 Rotation reset.";
   });
 
