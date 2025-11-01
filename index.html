@@ -142,6 +142,67 @@ window.onload = function () {
   let rotationSpeed = parseFloat(speedSlider.value);
   let direction = 1; // 1 = CW, -1 = CCW
   let autoStopTimer = null;
+let frameCount = 12; // number of frames around the disk
+let currentFrame = 0;
+
+// draw a mirror-simulated phenakistoscope
+function drawPhenakistoscopeMirror() {
+  ctx.save();
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Draw mirror background
+  ctx.fillStyle = "#111";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.translate(canvas.width / 2, canvas.height / 2);
+  ctx.scale(-1, 1); // Mirror horizontally
+  ctx.rotate(rotation);
+
+  const anglePerFrame = (2 * Math.PI) / frameCount;
+  const startAngle = currentFrame * anglePerFrame;
+  const endAngle = startAngle + anglePerFrame;
+
+  // Clip to one “slit frame” region
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.arc(0, 0, canvas.width / 2, startAngle, endAngle);
+  ctx.closePath();
+  ctx.clip();
+
+  if (image && image.complete && image.naturalWidth > 0) {
+    ctx.drawImage(image, -canvas.width / 2, -canvas.height / 2, canvas.width, canvas.height);
+  }
+
+  ctx.restore();
+
+  // Optional: draw outer mask to suggest slits
+  ctx.save();
+  ctx.strokeStyle = "#0f0";
+  ctx.lineWidth = 1.2;
+  for (let i = 0; i < frameCount; i++) {
+    const a = (i / frameCount) * 2 * Math.PI;
+    const x = canvas.width / 2 + Math.cos(a) * (canvas.width / 2 - 10);
+    const y = canvas.height / 2 + Math.sin(a) * (canvas.height / 2 - 10);
+    ctx.beginPath();
+    ctx.moveTo(canvas.width / 2, canvas.height / 2);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function animate() {
+  if (isRunning) {
+    rotation += direction * rotationSpeed;
+    currentFrame = (currentFrame + 1) % frameCount;
+  }
+
+  if (viewMode === "simulation") drawPhenakistoscopeMirror();
+  else drawRealistic();
+  drawInset();
+
+  requestAnimationFrame(animate);
+}
 
   function drawSimulation() {
     ctx.save();
