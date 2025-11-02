@@ -365,6 +365,12 @@
               <div class="speedValue" id="speedValue">0.020</div>
             </div>
 
+            <div class="speedWrap">
+              <label for="slitWidth">Slit Width</label>
+              <input id="slitWidth" type="range" min="1" max="45" step="1" value="10">
+              <div class="speedValue" id="slitWidthValue">10°</div>
+            </div>
+
             <div style="display:flex;gap:8px;align-items:center">
               <label for="viewMode">View</label>
               <select id="viewMode" style="min-width:150px">
@@ -465,6 +471,8 @@
       const indicator    = document.getElementById('indicator');
       const speed        = document.getElementById('speed');
       const speedValue   = document.getElementById('speedValue');
+      const slitWidth    = document.getElementById('slitWidth');
+      const slitWidthValue = document.getElementById('slitWidthValue');
       const toggleInset  = document.getElementById('toggleInset');
       const insetDiv     = document.getElementById('inset');
       const spinner      = document.getElementById('spinner');
@@ -646,7 +654,7 @@
 
         // simulate slits by drawing a simple animated mask: keep slits visible
         const slits = 12;
-        const slitWidthDeg = 10 * Math.PI / 180;
+        const slitWidthDeg = (parseFloat(slitWidth.value) || 10) * Math.PI / 180;
         ctx.save();
         ctx.translate(cx, cy);
         ctx.rotate(-rotation); // small trick to make slits stationary wrt rotation
@@ -821,6 +829,12 @@
       speed.addEventListener('input', (e) => {
         rotationSpeed = parseFloat(e.target.value);
         speedValue.textContent = rotationSpeed.toFixed(3);
+      });
+
+      // slit width control
+      slitWidth.addEventListener('input', (e) => {
+        const value = parseInt(e.target.value);
+        slitWidthValue.textContent = value + '°';
       });
 
   // (toggle inset removed)
