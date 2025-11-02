@@ -371,6 +371,12 @@
               <div class="speedValue" id="slitWidthValue">10°</div>
             </div>
 
+            <div class="speedWrap">
+              <label for="slitCount">Number of Slits</label>
+              <input id="slitCount" type="range" min="6" max="24" step="1" value="12">
+              <div class="speedValue" id="slitCountValue">12</div>
+            </div>
+
             <div style="display:flex;gap:8px;align-items:center">
               <label for="viewMode">View</label>
               <select id="viewMode" style="min-width:150px">
@@ -473,6 +479,8 @@
       const speedValue   = document.getElementById('speedValue');
       const slitWidth    = document.getElementById('slitWidth');
       const slitWidthValue = document.getElementById('slitWidthValue');
+      const slitCount    = document.getElementById('slitCount');
+      const slitCountValue = document.getElementById('slitCountValue');
       const toggleInset  = document.getElementById('toggleInset');
       const insetDiv     = document.getElementById('inset');
       const spinner      = document.getElementById('spinner');
@@ -653,7 +661,7 @@
         }
 
         // simulate slits by drawing a simple animated mask: keep slits visible
-        const slits = 12;
+        const slits = parseInt(slitCount.value) || 12;
         const slitWidthDeg = (parseFloat(slitWidth.value) || 10) * Math.PI / 180;
         ctx.save();
         ctx.translate(cx, cy);
@@ -835,6 +843,12 @@
       slitWidth.addEventListener('input', (e) => {
         const value = parseInt(e.target.value);
         slitWidthValue.textContent = value + '°';
+      });
+
+      // slit count control
+      slitCount.addEventListener('input', (e) => {
+        const value = parseInt(e.target.value);
+        slitCountValue.textContent = value.toString();
       });
 
   // (toggle inset removed)
