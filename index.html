@@ -370,7 +370,6 @@
               <select id="viewMode" style="min-width:150px">
                 <option value="photo">Photo (default)</option>
                 <option value="simulation">Simulation</option>
-                <option value="realistic">Realistic</option>
               </select>
             </div>
           </div>
@@ -420,7 +419,7 @@
   <script>
     /* Phenakistoscope Simulator
        - Uses images from /images/
-       - Photo / Simulation / Realistic modes
+       - Simulation / Photo  modes
        - Auto-start for 2 minutes, then stop
        - FileReader for local uploads (GitHub Pages safe)
        - Responsive canvas with DPR scaling
@@ -483,7 +482,7 @@
       let backgroundFrame = new Image(); // optional frame (we have frame_2.png in images/)
       backgroundFrame.src = "images/frame_2.png";
 
-      let viewMode = 'simulation'; // photo | simulation | realistic
+      let viewMode = 'simulation'; // photo | simulation 
       let isRunning = false;
       let rotation = 0;
       let rotationSpeed = parseFloat(speed.value) || 0.02;
@@ -660,41 +659,6 @@
         }
         ctx.closePath();
         ctx.fillStyle = "#fff";
-        ctx.fill();
-        ctx.restore();
-      }
-
-      // realistic mode: show the disc reflected and an inset (a little darker, like view through a mirror)
-      function drawRealisticMode() {
-        clear();
-        // draw frame image faintly
-        if (backgroundFrame.complete && backgroundFrame.naturalWidth > 0) {
-          ctx.save();
-          ctx.globalAlpha = 0.12;
-          const s = Math.min(canvas.width / backgroundFrame.naturalWidth, canvas.height / backgroundFrame.naturalHeight) * 1.2;
-          const bw = backgroundFrame.naturalWidth * s, bh = backgroundFrame.naturalHeight * s;
-          ctx.drawImage(backgroundFrame, (canvas.width - bw) / 2, (canvas.height - bh) / 2, bw, bh);
-          ctx.restore();
-        }
-        // mirrored small disc
-        const cx = canvas.width / 2, cy = canvas.height / 2;
-        const r = canvas.width * 0.35;
-        ctx.save();
-        ctx.translate(cx, cy);
-        ctx.scale(-1, 1); // reflection
-        ctx.rotate(rotation);
-        if (discImage && discImage.complete && discImage.naturalWidth > 0) {
-          const s = Math.max((r * 2) / discImage.width, (r * 2) / discImage.height);
-          ctx.drawImage(discImage, -r, -r, r * 2, r * 2);
-        }
-        ctx.restore();
-
-        // overlay subtle slit mask to simulate viewing through slot
-        ctx.save();
-        ctx.globalCompositeOperation = "source-over";
-        ctx.beginPath();
-        ctx.rect(0, cy - 60, canvas.width, 120);
-        ctx.fillStyle = "rgba(0,0,0,0.25)";
         ctx.fill();
         ctx.restore();
       }
