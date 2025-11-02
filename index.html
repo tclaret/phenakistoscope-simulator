@@ -713,7 +713,8 @@
         insetCtx.restore();
         // circular border
         insetCtx.beginPath();
-        insetCtx.arc(insetCanvas.widtgh / 2, insetCanvas.height / 2, insetCanvas.width / 2 - 2, 0, Math.PI * 2);
+        if (insetCanvas.width < 4) return; // Skip if too small
+        insetCtx.arc(insetCanvas.width / 2, insetCanvas.height / 2, Math.max(2, insetCanvas.width / 2 - 2), 0, Math.PI * 2);
         insetCtx.lineWidth = 3;
         insetCtx.strokeStyle = "rgba(255,255,255,0.06)";
         insetCtx.stroke();
