@@ -3,235 +3,663 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Vintage Phenakistoscope Simulator</title>
+<title>Phenakistoscope Simulator — Explore the Earliest Animation Discs</title>
+<link rel="icon" href="images/frame_2.png" />
 <style>
   :root{
-    --wood:#3a2a19;
-    --panel:#22160f;
-    --accent:#e8c87a;
-    --muted:#bda982;
+    --bg:#07111b;
+    --panel:#0b1220;
+    --muted:#9aa7bf;
+    --accent:#6ee7b7;
+    --glass: rgba(255,255,255,0.03);
+    --control-height:48px;
   }
-  body{
-    font-family:'Georgia',serif;
-    background:
-      radial-gradient(circle at center, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.95) 100%),
-      url('https://upload.wikimedia.org/wikipedia/commons/8/8d/Wood_background_texture.jpg');
-    background-size:cover;
-    background-attachment:fixed;
-    color:var(--muted);
-    margin:0; padding:20px;
-    filter:sepia(0.25);
+  html,body{height:100%;margin:0;background:linear-gradient(180deg,#05070a 0%, var(--bg) 100%);color:#e6eef8;font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial;}
+  .container{max-width:1200px;margin:18px auto;padding:18px;box-sizing:border-box;}
+  header{display:flex;flex-direction:column;gap:10px;align-items:center;margin-bottom:12px}
+  h1{margin:0;font-size:20px;font-weight:600;letter-spacing:0.2px}
+  .layout{display:grid;grid-template-columns: 360px 1fr; gap:20px; align-items:start;}
+  /* responsive */
+  @media (max-width:900px){ .layout{grid-template-columns:1fr; } .controlsPanel{width:100%}}
+  .panel{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); padding:12px;border-radius:12px;box-shadow:0 6px 24px rgba(2,6,23,0.7)}
+  .controlsPanel{display:flex;flex-direction:column;gap:10px}
+  label{font-size:13px;color:var(--muted);display:block;margin-bottom:6px}
+  select,input[type=text],input[type=file],button{width:100%;box-sizing:border-box;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:inherit;font-size:14px}
+  .row{display:flex;gap:8px}
+  .row .small{flex:1}
+  .mini{padding:6px 8px;font-size:13px}
+  /* instrument panel */
+  .instrument{display:flex;flex-direction:column;gap:8px;padding:8px;border-radius:10px;background:linear-gradient(180deg,#111316,#0b0f14);box-shadow:inset 0 2px 8px rgba(0,0,0,0.6)}
+  .controls-top{display:flex;gap:8px;flex-wrap:wrap}
+  .controls-top > *{flex:1 1 140px;min-width:120px}
+  .controls-bottom{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+  .bigBtn{padding:10px 14px;border-radius:10px;background:linear-gradient(180deg,#0e1620,#071017);border:1px solid rgba(255,255,255,0.04);cursor:pointer}
+  .bigBtn:hover{transform:translateY(-1px)}
+  .indicator{width:14px;height:14px;border-radius:50%;background:#300;box-shadow:0 0 4px #000;display:inline-block;margin-left:8px}
+  .indicator.on{background:var(--accent);box-shadow:0 0 12px var(--accent)}
+  .speedWrap{display:flex;align-items:center;gap:8px}
+  .speedValue{min-width:56px;text-align:right;color:var(--accent)}
+  /* viewer column */
+  .viewer{display:flex;flex-direction:column;gap:10px;align-items:center}
+  .canvasWrap{position:relative;width:100%;display:flex;justify-content:center;align-items:center;padding:18px}
+  canvas{background:#000;border-radius:16px;max-width:calc(100% - 36px);height:auto;box-shadow: 0 12px 40px rgba(1,6,14,0.9), inset 0 0 40px rgba(255,255,255,0.02)}
+  /* glow ring */
+  .glowRing{position:absolute;pointer-events:none;border-radius:50%;filter:blur(18px);mix-blend-mode:screen;transition:opacity 0.3s}
+  /* inset preview (small circular) */
+  .inset{position:absolute;right:22px;bottom:22px;width:140px;height:140px;border-radius:50%;overflow:hidden;border:3px solid rgba(255,255,255,0.04);box-shadow:0 6px 18px rgba(0,0,0,0.6)}
+  .thumbnail{margin-top:8px;display:flex;justify-content:center}
+  .thumbImg{width:140px;height:140px;object-fit:cover;border-radius:8px;opacity:0;transition:opacity 360ms ease}
+  /* loading spinner */
+  .spinner{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:64px;height:64px;border-radius:50%;display:none;align-items:center;justify-content:center}
+  .spinner.visible{display:flex}
+  .spinner .dot{width:14px;height:14px;border-radius:50%;background:var(--accent);animation:spin 1s linear infinite}
+  @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+  /* about footer */
+  footer{margin-top:12px;color:var(--muted);font-size:14px;line-height:1.4}
+  footer a{color:var(--accent);text-decoration:none}
+  .about{margin-top:18px;padding:12px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.01));font-size:14px;color:var(--muted)}
+  /* responsive tweaks */
+  @media (max-width:520px){
+    .inset{display:none}
+    .thumbImg{width:120px;height:120px}
   }
-  h1{
-    text-align:center;
-    color:var(--accent);
-    text-shadow:0 0 12px rgba(255,220,140,0.3);
-    font-weight:normal;
-    margin:0 0 10px;
-  }
-  .wrap{
-    max-width:1100px;
-    margin:0 auto;
-    display:grid;
-    grid-template-columns:360px 1fr;
-    gap:20px;
-    align-items:start;
-  }
-  .panel{
-    background:linear-gradient(180deg, rgba(30,20,10,0.9), rgba(10,5,2,0.95));
-    border:1px solid rgba(255,255,255,0.08);
-    border-radius:12px;
-    padding:16px;
-    box-shadow:0 6px 20px rgba(0,0,0,0.6), inset 0 0 40px rgba(0,0,0,0.7);
-  }
-  label{display:block;margin:10px 0 6px;color:var(--accent);font-size:13px}
-  input,select,button{
-    width:100%;box-sizing:border-box;padding:8px;border-radius:8px;
-    border:1px solid rgba(255,255,255,0.1);
-    background:rgba(0,0,0,0.3);color:var(--muted);
-    font-family:'Courier New',monospace;font-size:13px;
-  }
-  button:hover{background:rgba(255,220,140,0.1);box-shadow:0 0 8px rgba(255,220,140,0.2)}
-  .controls{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-  .viewer{
-    display:flex;justify-content:center;align-items:center;height:560px;
-    background:radial-gradient(circle at center, rgba(240,200,150,0.1) 0%, rgba(0,0,0,0.95) 100%);
-    border-radius:12px;box-shadow:0 0 40px rgba(0,0,0,0.7), inset 0 0 60px rgba(0,0,0,0.8);
-    position:relative;
-  }
-  canvas{
-    background:radial-gradient(circle at center, #2b1b0c 0%, #0e0602 100%);
-    border-radius:50%;
-    box-shadow:0 0 50px rgba(255,220,140,0.15), inset 0 0 40px rgba(0,0,0,0.9);
-  }
-  .reflection{
-    position:absolute;
-    bottom:-160px;
-    transform:scaleY(-1);
-    opacity:0.25;
-    filter:blur(2px);
-  }
-  .note{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.4}
-  footer{margin-top:12px;font-size:11px;color:#a6936d;text-align:center}
-  .thumb{width:72px;height:72px;border-radius:8px;overflow:hidden;cursor:pointer;border:2px solid transparent}
-  .thumb img{width:100%;height:100%;object-fit:cover}
-  .thumb.selected{border-color:var(--accent)}
-  .examples{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 </style>
 </head>
 <body>
-<h1>Vintage Phenakistoscope Simulator</h1>
-<div class="wrap">
-  <div class="panel">
-    <div class="note">Choose a disc or load your own. Adjust slit and speed to match the original optical illusion seen through a mirror, just as in a 19th-century phenakistoscope.</div>
+<div class="container">
+  <header>
+    <h1>Phenakistoscope Simulator — Explore the Earliest Animation Discs</h1>
+    <div style="font-size:13px;color:var(--muted)">Interactive viewer — choose a disc, switch modes, and watch the illusion.</div>
+  </header>
 
-    <label>Built-in discs</label>
-    <div class="examples" id="examples"></div>
+  <div class="layout">
+    <!-- LEFT: controls -->
+    <div class="panel controlsPanel">
+      <div class="instrument">
+        <div class="controls-top">
+          <div>
+            <label for="discSelect">Choose a disc</label>
+            <select id="discSelect" aria-label="Choose disc"></select>
+            <div class="thumbnail" style="margin-top:8px">
+              <img id="thumbnail" class="thumbImg" src="" alt="selected disc thumbnail">
+            </div>
+          </div>
+          <div>
+            <label for="fileInput">Upload image (local)</label>
+            <input id="fileInput" type="file" accept="image/*">
+            <label style="margin-top:8px">Or paste image URL</label>
+            <div class="row">
+              <input id="imageUrl" type="text" placeholder="https://...jpg" />
+              <button id="loadUrl" class="mini">Load</button>
+            </div>
+          </div>
+        </div>
 
-    <label>Image URL</label>
-    <input id="imgUrl" type="text" placeholder="https://...jpg or png">
-    <div class="controls">
-      <input id="loadUrl" type="button" value="Load URL">
-      <input id="upload" type="file" accept="image/*">
-    </div>
+        <hr style="border:1px solid rgba(255,255,255,0.03);margin:8px 0">
 
-    <label>Rotation speed (rotations per second)</label>
-    <input id="speed" type="range" min="0" max="6" step="0.05" value="2">
+        <div class="controls-bottom">
+          <div style="display:flex;align-items:center;gap:8px">
+            <button id="startStop" class="bigBtn">▶️ Start</button>
+            <div id="indicator" class="indicator"></div>
+            <button id="resetBtn" class="bigBtn">🔁 Reset</button>
+          </div>
 
-    <div class="controls">
-      <div>
-        <label>Number of slits</label>
-        <input id="slits" type="range" min="4" max="48" step="1" value="12">
+          <div class="speedWrap">
+            <label for="speed">Speed</label>
+            <input id="speed" type="range" min="0.001" max="0.12" step="0.001" value="0.02">
+            <div class="speedValue" id="speedValue">0.020</div>
+          </div>
+
+          <div style="display:flex;gap:8px;align-items:center">
+            <label for="viewMode">View</label>
+            <select id="viewMode" style="min-width:150px">
+              <option value="photo">Photo (default)</option>
+              <option value="simulation">Simulation</option>
+              <option value="realistic">Realistic</option>
+            </select>
+            <button id="toggleInset" class="mini">Toggle Inset</button>
+          </div>
+        </div>
+
+        <div style="margin-top:6px;color:var(--muted);font-size:13px">Status: <span id="status">Ready</span></div>
       </div>
-      <div>
-        <label>Slit width (degrees)</label>
-        <input id="slitWidth" type="range" min="1" max="40" step="1" value="6">
+    </div>
+
+    <!-- RIGHT: viewer -->
+    <div class="panel viewer">
+      <div class="canvasWrap">
+        <!-- glow ring -->
+        <div id="glow" class="glowRing" style="width:820px;height:820px;opacity:0;"></div>
+
+        <!-- main canvas (we scale canvas based on DPR in JS) -->
+        <canvas id="viewCanvas" width="800" height="800" aria-label="Phenakistoscope view"></canvas>
+
+        <!-- circular inset (small) -->
+        <div id="inset" class="inset" style="display:none">
+          <canvas id="insetCanvas" width="200" height="200" style="width:100%;height:100%"></canvas>
+        </div>
+
+        <!-- spinner -->
+        <div id="spinner" class="spinner">
+          <div class="dot"></div>
+        </div>
       </div>
-    </div>
 
-    <label>View options</label>
-    <div class="controls">
-      <div><label><input id="mirror" type="checkbox" checked> Mirror reflection</label></div>
-      <div><label><input id="showDisc" type="checkbox" checked> Show disc background</label></div>
+      <footer class="about">
+        <strong>About the phenakistoscope</strong>
+        <p style="margin:6px 0 8px 0;color:var(--muted)">The phenakistoscope (also spelled phenakistiscope) is an early animation device that creates the illusion of motion from a sequence of pictures. Select a disc to view the animation and experiment with speed and viewing modes.</p>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <a href="https://en.wikipedia.org/wiki/Phenakistiscope" target="_blank" rel="noopener">Wikipedia — Phenakistiscope</a>
+          <a href="https://www.acmi.net.au/works/100515--phenakistoscope-discs/" target="_blank" rel="noopener">ACMI — Phenakistoscope Discs</a>
+          <a href="https://www.fantasy-animation.org/current-posts/what-is-a-phenakistoscope" target="_blank" rel="noopener">What is a Phenakistoscope? — Fantasy Animation</a>
+        </div>
+      </footer>
     </div>
-
-    <div class="controls" style="margin-top:10px">
-      <button id="pause">Pause</button>
-      <button id="reset">Reset</button>
-    </div>
-    <footer>Inspired by Dick Balzer’s phenakistoscope collection</footer>
-  </div>
-
-  <div class="panel">
-    <div class="viewer">
-      <canvas id="canvas" width="720" height="720"></canvas>
-      <canvas id="reflection" width="720" height="200" class="reflection"></canvas>
-    </div>
-    <div class="note">This view simulates what you’d see reflected in a mirror through the slits of a real 1830s disc.</div>
   </div>
 </div>
 
 <script>
-// --- built-in example discs ---
-const examples = [
-  {name:'Default (McLean_1)', url:'https://tclaret.github.io/phenakistoscope-simulator/McLean_1.png'},
-  {name:'Simple rings', url:'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600"><rect width="100%" height="100%" fill="#2b1b0c"/><g transform="translate(300,300)">${[...Array(12)].map((_,i)=>`<circle r="${240-i*12}" fill="none" stroke="#e8c87a" stroke-width="1" opacity="${0.2+i*0.05}"/>`).join('')}</g></svg>`)}
-];
-const examplesEl=document.getElementById('examples');
-examples.forEach((ex,i)=>{
-  const el=document.createElement('div');el.className='thumb';el.title=ex.name;el.innerHTML=`<img src="${ex.url}">`;
-  el.onclick=()=>selectExample(i);examplesEl.appendChild(el);
-});
-let selectedExample=null;
-function selectExample(i){
-  selectedExample=i;
-  document.querySelectorAll('.thumb').forEach((t,idx)=>t.classList.toggle('selected',idx===i));
-  loadImage(examples[i].url);
-}
+/* Phenakistoscope Simulator
+   - Uses images from /images/
+   - Photo / Simulation / Realistic modes
+   - Auto-start for 2 minutes, then stop
+   - FileReader for local uploads (GitHub Pages safe)
+   - Responsive canvas with DPR scaling
+*/
 
-// --- Canvas setup ---
-const canvas=document.getElementById('canvas');
-const ctx=canvas.getContext('2d');
-const refl=document.getElementById('reflection');
-const rctx=refl.getContext('2d');
-let img=null,angle=0,last=performance.now(),running=true;
-const speedEl=document.getElementById('speed');
-const slitsEl=document.getElementById('slits');
-const slitWidthEl=document.getElementById('slitWidth');
-const mirrorEl=document.getElementById('mirror');
-const showDiscEl=document.getElementById('showDisc');
-const pauseBtn=document.getElementById('pause');
-const resetBtn=document.getElementById('reset');
+window.onload = function() {
+  console.log("Phenakistoscope Simulator starting...");
 
-pauseBtn.onclick=()=>{running=!running;pauseBtn.textContent=running?'Pause':'Resume';if(running){last=performance.now();requestAnimationFrame(loop);}};
-resetBtn.onclick=()=>{angle=0;};
-document.getElementById('loadUrl').onclick=()=>{const v=document.getElementById('imgUrl').value.trim();if(v)loadImage(v);};
-document.getElementById('upload').addEventListener('change',e=>{
-  const f=e.target.files[0];if(!f)return;
-  const reader=new FileReader();
-  reader.onload=()=>loadImage(reader.result);
-  reader.readAsDataURL(f);
-});
+  // --- configuration: filenames from your images/ folder ---
+  const imageFiles = [
+    "9965f708-6fd1-43a3-8b4a-9b29a187c1f8.png",
+    "a_cheval.png",
+    "AEO175939_PhenakistoscopeGiroux60.jpg",
+    "AEO185553_PhenakistiscopeDisc_ManInBlueAndRed.jpg",
+    "Dancing.jpg",
+    "frame_2.png",
+    "Gernamy_1949_R_Balzer.png",
+    "Jongleur.png",
+    "jongleur.png",
+    "McLean_1.png",
+    "medium_1990_5036_3369.jpg",
+    "medium_a001813b.jpg",
+    "ppmsca.jpg",
+    "phenakistoscope-4.gif",
+    "tumblr_oc1czn99ZM1r9jbwno1_500.png",
+    "tumblr_oc1d3skVsF1r9jbwno1_500.png",
+    "tumblr_oc1d4wZeB81r9jbwno1_500.png",
+    "tumblr_oc1d6377G91r9jbwno1_500.png",
+    "tumblr_oc1d7io0Kp1r9jbwno1_500.png",
+    "tumblr_oc1da70gPN1r9jbwno1_500.png",
+    "WomanChoppingTree.jpg"
+  ];
 
-function loadImage(src){
-  const i=new Image();i.crossOrigin='anonymous';
-  i.onload=()=>{img=i;};
-  i.onerror=()=>alert('Could not load image (check CORS or use Upload).');
-  i.src=src;
-}
-function clear(){ctx.clearRect(0,0,canvas.width,canvas.height);}
-function drawDisc(theta){
-  if(!img)return;
-  const cx=canvas.width/2,cy=canvas.height/2;
-  ctx.save();ctx.translate(cx,cy);ctx.rotate(theta);
-  const s=Math.min(canvas.width*0.9/img.width,canvas.height*0.9/img.height);
-  const w=img.width*s,h=img.height*s;
-  ctx.drawImage(img,-w/2,-h/2,w,h);
-  ctx.restore();
-}
-function drawReflectedThroughSlits(theta){
-  if(!img)return;
-  const cx=canvas.width/2,cy=canvas.height/2;
-  const slits=parseInt(slitsEl.value,10);
-  const slitDeg=parseFloat(slitWidthEl.value);
-  const off=document.createElement('canvas');off.width=canvas.width;off.height=canvas.height;
-  const octx=off.getContext('2d');
-  octx.translate(off.width/2,off.height/2);
-  if(mirrorEl.checked)octx.scale(-1,1);
-  octx.rotate(theta);
-  const s=Math.min(off.width*0.9/img.width,off.height*0.9/img.height);
-  octx.drawImage(img,-img.width*s/2,-img.height*s/2,img.width*s,img.height*s);
-  const mask=document.createElement('canvas');mask.width=off.width;mask.height=off.height;
-  const mctx=mask.getContext('2d');mctx.translate(mask.width/2,mask.height/2);
-  for(let i=0;i<slits;i++){
-    const a=(i*2*Math.PI/slits)-0.5*(slitDeg*Math.PI/180);
-    const aw=slitDeg*Math.PI/180;
-    mctx.beginPath();mctx.moveTo(0,0);
-    mctx.arc(0,0,Math.max(mask.width,mask.height),a,a+aw);
-    mctx.closePath();mctx.fillStyle='white';mctx.fill();
+  // DOM
+  const discSelect = document.getElementById('discSelect');
+  const thumbnail = document.getElementById('thumbnail');
+  const fileInput = document.getElementById('fileInput');
+  const imageUrl = document.getElementById('imageUrl');
+  const loadUrlBtn = document.getElementById('loadUrl');
+  const viewModeSel = document.getElementById('viewMode');
+  const startStopBtn = document.getElementById('startStop');
+  const resetBtn = document.getElementById('resetBtn');
+  const indicator = document.getElementById('indicator');
+  const speed = document.getElementById('speed');
+  const speedValue = document.getElementById('speedValue');
+  const toggleInset = document.getElementById('toggleInset');
+  const insetDiv = document.getElementById('inset');
+  const spinner = document.getElementById('spinner');
+  const status = document.getElementById('status');
+  const glow = document.getElementById('glow');
+
+  const canvas = document.getElementById('viewCanvas');
+  const ctx = canvas.getContext('2d');
+
+  const insetCanvas = document.getElementById('insetCanvas');
+  const insetCtx = insetCanvas.getContext('2d');
+
+  // state
+  let discImage = new Image();       // the currently displayed disc image (from images/ or uploaded)
+  let discUrl = null;                // string for current image source
+  let backgroundFrame = new Image(); // optional frame (we have frame_2.png in images/)
+  backgroundFrame.src = "images/frame_2.png";
+
+  let viewMode = 'photo'; // photo | simulation | realistic
+  let isRunning = false;
+  let rotation = 0;
+  let rotationSpeed = parseFloat(speed.value) || 0.02;
+  let showInset = false;
+  let autoStopTimer = null;
+  let glowOpacity = 0;
+
+  // Fill dropdown with all images
+  function populateDropdown() {
+    discSelect.innerHTML = '';
+    imageFiles.forEach((f, i) => {
+      const opt = document.createElement('option');
+      opt.value = f;
+      opt.textContent = f;
+      discSelect.appendChild(opt);
+    });
+    // default select first
+    discSelect.selectedIndex = 0;
+    loadSelectedDisc(); // load first by default
   }
-  octx.globalCompositeOperation='destination-in';
-  octx.drawImage(mask,-mask.width/2,-mask.height/2);
-  ctx.drawImage(off,0,0);
-}
-function drawReflection(){
-  rctx.save();
-  rctx.clearRect(0,0,refl.width,refl.height);
-  rctx.drawImage(canvas,0,0,refl.width,refl.height);
-  rctx.restore();
-}
-function loop(ts){
-  if(!running)return;
-  const dt=(ts-last)/1000;last=ts;
-  angle+=dt*parseFloat(speedEl.value)*2*Math.PI;
-  clear();
-  if(showDiscEl.checked&&img)drawDisc(angle);
-  if(img)drawReflectedThroughSlits(angle);
-  drawReflection();
-  requestAnimationFrame(loop);
-}
-selectExample(0);
-requestAnimationFrame(loop);
+
+  // resize canvas for DPR and responsiveness
+  function resizeCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.max(600, Math.floor(Math.min(rect.width, 900) * dpr));
+    canvas.height = canvas.width;
+    // inset canvas scale
+    const insetRect = insetCanvas.getBoundingClientRect();
+    insetCanvas.width = Math.floor(insetRect.width * dpr);
+    insetCanvas.height = Math.floor(insetRect.height * dpr);
+  }
+  window.addEventListener('resize', () => { resizeCanvas(); });
+
+  // draw functions
+  function clear() { ctx.clearRect(0,0,canvas.width,canvas.height); }
+
+  // draw glow (soft ring scaled to canvas)
+  function drawGlow() {
+    const w = canvas.width, h = canvas.height;
+    const el = glow;
+    const size = Math.min(w,h) + 40;
+    el.style.width = size + 'px';
+    el.style.height = size + 'px';
+    el.style.left = ((canvas.getBoundingClientRect().left + canvas.offsetWidth/2) - size/2) + 'px';
+    el.style.top = ((canvas.getBoundingClientRect().top + canvas.offsetHeight/2) - size/2) + 'px';
+    el.style.background = `radial-gradient(circle, rgba(110,231,183,${0.25*glowOpacity}) 0%, rgba(110,231,183,${0.02*glowOpacity}) 40%, rgba(0,0,0,0) 70%)`;
+    el.style.opacity = (glowOpacity>0.01) ? Math.min(1, glowOpacity) : 0;
+  }
+
+  // draw photo mode: circular disc with center pin & outer holes
+  function drawPhotoMode() {
+    clear();
+    const cx = canvas.width/2, cy = canvas.height/2;
+    const r = canvas.width * 0.42;
+    // background vignette
+    const g = ctx.createRadialGradient(cx, cy, r*0.2, cx,cy,r*1.1);
+    g.addColorStop(0, "#00000000");
+    g.addColorStop(1, "#00000066");
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    // draw frame background if available
+    if (backgroundFrame.complete && backgroundFrame.naturalWidth > 0) {
+      // lightly draw behind disc to give context
+      ctx.save();
+      const sf = (canvas.width*1.02) / backgroundFrame.naturalWidth;
+      const bw = backgroundFrame.naturalWidth * sf, bh = backgroundFrame.naturalHeight * sf;
+      ctx.globalAlpha = 0.08;
+      ctx.drawImage(backgroundFrame, cx - bw/2, cy - bh/2, bw, bh);
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
+
+    // disc shadow
+    ctx.beginPath();
+    ctx.arc(cx, cy + r*0.06, r*1.03, 0, Math.PI*2);
+    ctx.fillStyle = "rgba(0,0,0,0.45)";
+    ctx.fill();
+
+    // draw disc image masked as circle
+    if (discImage && discImage.complete && discImage.naturalWidth>0) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI*2);
+      ctx.closePath();
+      ctx.clip();
+      // rotate image to current rotation (simulate disc spin)
+      ctx.translate(cx, cy);
+      ctx.rotate(rotation);
+      // draw the image centered, scale to cover circle
+      const img = discImage;
+      const s = Math.max((r*2)/img.width, (r*2)/img.height);
+      const iw = img.width * s, ih = img.height * s;
+      ctx.drawImage(img, -iw/2, -ih/2, iw, ih);
+      ctx.restore();
+    }
+
+    // outer rim (paper)
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI*2);
+    ctx.lineWidth = Math.max(6, canvas.width*0.008);
+    ctx.strokeStyle = "rgba(255,255,255,0.06)";
+    ctx.stroke();
+
+    // small holes ring (simulate penakistoscope slits / holes)
+    const holes = 24;
+    const holeR = Math.max(4, canvas.width*0.006);
+    for (let i=0;i<holes;i++){
+      const a = i * (Math.PI*2/holes) + rotation;
+      const hx = cx + Math.cos(a) * (r*0.92);
+      const hy = cy + Math.sin(a) * (r*0.92);
+      ctx.beginPath();
+      ctx.arc(hx, hy, holeR, 0, Math.PI*2);
+      ctx.fillStyle = "rgba(0,0,0,0.65)";
+      ctx.fill();
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = "rgba(255,255,255,0.04)";
+      ctx.stroke();
+    }
+
+    // center pin
+    ctx.beginPath();
+    ctx.arc(cx, cy, Math.max(6, canvas.width*0.01), 0, Math.PI*2);
+    ctx.fillStyle = "#222";
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "rgba(255,255,255,0.06)";
+    ctx.stroke();
+
+    // subtle top highlight
+    ctx.fillStyle = "rgba(255,255,255,0.02)";
+    ctx.beginPath();
+    ctx.ellipse(cx - r*0.3, cy - r*0.45, r*0.7, r*0.35, Math.PI/6, 0, Math.PI*2);
+    ctx.fill();
+
+    // vignette
+    ctx.fillStyle = g;
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+  }
+
+  // simulation: draw the image as a spinning flat disc (full canvas), mirrored through slits like earlier simpler approach
+  function drawSimulationMode() {
+    clear();
+    const cx = canvas.width/2, cy = canvas.height/2;
+    // draw background
+    ctx.fillStyle = "#070b10";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    if (discImage && discImage.complete && discImage.naturalWidth>0) {
+      // draw rotated image covering canvas
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(rotation);
+      const img = discImage;
+      const s = Math.min((canvas.width*0.9)/img.width, (canvas.height*0.9)/img.height);
+      const iw = img.width * s, ih = img.height * s;
+      ctx.drawImage(img, -iw/2, -ih/2, iw, ih);
+      ctx.restore();
+    }
+
+    // simulate slits by drawing a simple animated mask: keep slits visible
+    const slits = 12;
+    const slitWidthDeg = 10 * Math.PI/180;
+    ctx.save();
+    ctx.translate(cx,cy);
+    ctx.rotate(-rotation); // small trick to make slits stationary wrt rotation
+    ctx.globalCompositeOperation = "destination-in";
+    ctx.beginPath();
+    for (let i=0;i<slits;i++){
+      const a = i * (2*Math.PI/slits) - slitWidthDeg/2;
+      ctx.moveTo(0,0);
+      ctx.arc(0,0,Math.max(canvas.width,canvas.height), a, a+slitWidthDeg);
+    }
+    ctx.closePath();
+    ctx.fillStyle = "#fff";
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // realistic mode: show the disc reflected and an inset (a little darker, like view through a mirror)
+  function drawRealisticMode() {
+    clear();
+    // draw frame image faintly
+    if (backgroundFrame.complete && backgroundFrame.naturalWidth>0) {
+      ctx.save();
+      ctx.globalAlpha = 0.12;
+      const s = Math.min(canvas.width/backgroundFrame.naturalWidth, canvas.height/backgroundFrame.naturalHeight) * 1.2;
+      const bw = backgroundFrame.naturalWidth * s, bh = backgroundFrame.naturalHeight * s;
+      ctx.drawImage(backgroundFrame, (canvas.width-bw)/2, (canvas.height-bh)/2, bw, bh);
+      ctx.restore();
+    }
+    // mirrored small disc
+    const cx = canvas.width/2, cy = canvas.height/2;
+    const r = canvas.width*0.35;
+    ctx.save();
+    ctx.translate(cx,cy);
+    ctx.scale(-1,1); // reflection
+    ctx.rotate(rotation);
+    if (discImage && discImage.complete && discImage.naturalWidth>0){
+      const s = Math.max((r*2)/discImage.width, (r*2)/discImage.height);
+      ctx.drawImage(discImage, -r, -r, r*2, r*2);
+    }
+    ctx.restore();
+
+    // overlay subtle slit mask to simulate viewing through slot
+    ctx.save();
+    ctx.globalCompositeOperation = "source-over";
+    ctx.beginPath();
+    ctx.rect(0, cy - 60, canvas.width, 120);
+    ctx.fillStyle = "rgba(0,0,0,0.25)";
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // draw inset circular preview
+  function drawInset() {
+    insetCtx.clearRect(0,0,insetCanvas.width,insetCanvas.height);
+    if (!showInset) return;
+    insetCtx.save();
+    insetCtx.translate(insetCanvas.width/2, insetCanvas.height/2);
+    insetCtx.rotate(rotation);
+    if (discImage && discImage.complete && discImage.naturalWidth>0) {
+      const s = Math.max(insetCanvas.width/discImage.width, insetCanvas.height/discImage.height);
+      const iw = discImage.width * s, ih = discImage.height * s;
+      insetCtx.drawImage(discImage, -iw/2, -ih/2, iw, ih);
+    }
+    insetCtx.restore();
+    // circular border
+    insetCtx.beginPath();
+    insetCtx.arc(insetCanvas.width/2, insetCanvas.height/2, insetCanvas.width/2 - 2, 0, Math.PI*2);
+    insetCtx.lineWidth = 3;
+    insetCtx.strokeStyle = "rgba(255,255,255,0.06)";
+    insetCtx.stroke();
+  }
+
+  // main render loop
+  function render(){
+    // glow opacity proportional to whether it's running, with a little pulse
+    if (isRunning) {
+      glowOpacity = 0.6 + 0.4*Math.abs(Math.sin(rotation*0.5));
+    } else {
+      glowOpacity = Math.max(0, glowOpacity - 0.02);
+    }
+    drawGlow();
+
+    if (viewMode === 'photo') drawPhotoMode();
+    else if (viewMode === 'simulation') drawSimulationMode();
+    else if (viewMode === 'realistic') drawRealisticMode();
+
+    drawInset();
+    requestAnimationFrame(render);
+  }
+
+  // load selected disc from images folder (filename)
+  function loadSelectedDisc(){
+    const filename = discSelect.value;
+    if (!filename) return;
+    const path = "images/" + filename;
+    showSpinner(true);
+    const img = new Image();
+    img.onload = () => {
+      discImage = img;
+      discUrl = path;
+      updateThumbnail(path);
+      status.textContent = "Loaded " + filename;
+      console.log("Loaded disc:", path);
+      showSpinner(false);
+    };
+    img.onerror = (e) => {
+      console.error("Error loading", path, e);
+      status.textContent = "Failed to load " + filename;
+      showSpinner(false);
+    };
+    img.src = path;
+    // ensure thumbnail fades in (we'll set src immediately; CSS handles fade)
+    thumbnail.style.opacity = 0;
+  }
+
+  // update thumbnail (fade-in)
+  function updateThumbnail(src) {
+    thumbnail.onload = () => {
+      thumbnail.style.opacity = 1;
+    };
+    thumbnail.src = src;
+  }
+
+  // spinner
+  function showSpinner(on) {
+    spinner.classList.toggle('visible', !!on);
+  }
+
+  // file upload (local) -> use FileReader as base64 (works on GitHub Pages)
+  fileInput.addEventListener('change', (ev) => {
+    const f = ev.target.files && ev.target.files[0];
+    if (!f) return;
+    status.textContent = "Loading local file...";
+    showSpinner(true);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        discImage = img;
+        discUrl = null;
+        updateThumbnail(e.target.result); // data URL shown in thumbnail
+        thumbnail.style.opacity = 1;
+        status.textContent = "Loaded (local) " + f.name;
+        showSpinner(false);
+        console.log("Loaded local file", f.name);
+      };
+      img.onerror = () => {
+        status.textContent = "Failed to read file.";
+        showSpinner(false);
+      };
+      img.src = e.target.result;
+    };
+    reader.onerror = () => {
+      status.textContent = "File read error";
+      showSpinner(false);
+    };
+    reader.readAsDataURL(f);
+  });
+
+  // load by URL
+  loadUrlBtn.addEventListener('click', () => {
+    const url = imageUrl.value.trim();
+    if (!url) { status.textContent = "Enter an image URL"; return; }
+    status.textContent = "Loading URL...";
+    showSpinner(true);
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      discImage = img;
+      discUrl = url;
+      updateThumbnail(url);
+      status.textContent = "Loaded from URL";
+      showSpinner(false);
+      console.log("Loaded from URL:", url);
+    };
+    img.onerror = (e) => {
+      status.textContent = "Failed to load URL (CORS?)";
+      console.error("URL load error", e);
+      showSpinner(false);
+    };
+    img.src = url;
+  });
+
+  // view change
+  viewModeSel.addEventListener('change', (e) => {
+    viewMode = e.target.value;
+    status.textContent = "Switched view: " + viewMode;
+  });
+
+  // start/stop toggle
+  startStopBtn.addEventListener('click', () => {
+    isRunning = !isRunning;
+    indicator.classList.toggle('on', isRunning);
+    startStopBtn.textContent = isRunning ? "⏸ Pause" : "▶️ Start";
+    status.textContent = isRunning ? "Rotation running" : "Rotation paused";
+    // clear auto-stop if user toggles manually
+    if (!isRunning && autoStopTimer) { clearTimeout(autoStopTimer); autoStopTimer = null; }
+  });
+
+  // reset
+  resetBtn.addEventListener('click', () => {
+    rotation = 0;
+    status.textContent = "Rotation reset";
+  });
+
+  // speed control
+  speed.addEventListener('input', (e) => {
+    rotationSpeed = parseFloat(e.target.value);
+    speedValue.textContent = rotationSpeed.toFixed(3);
+  });
+
+  // toggle inset
+  toggleInset.addEventListener('click', () => {
+    showInset = !showInset;
+    insetDiv.style.display = showInset ? 'block' : 'none';
+  });
+
+  // dropdown change
+  discSelect.addEventListener('change', () => { loadSelectedDisc(); });
+
+  // keyboard shortcuts for convenience (space toggles start/stop)
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') { e.preventDefault(); startStopBtn.click(); }
+  });
+
+  // start/stop auto-run for 2 minutes on load
+  function startAutoRun(durationMs = 120000) {
+    // start if not running
+    if (!isRunning) {
+      isRunning = true;
+      indicator.classList.add('on');
+      startStopBtn.textContent = "⏸ Pause";
+      status.textContent = "Auto-playing for 2 minutes...";
+    }
+    if (autoStopTimer) clearTimeout(autoStopTimer);
+    autoStopTimer = setTimeout(() => {
+      isRunning = false;
+      indicator.classList.remove('on');
+      startStopBtn.textContent = "▶️ Start";
+      status.textContent = "Auto-play finished (120s)";
+      autoStopTimer = null;
+    }, durationMs);
+  }
+
+  // rotation update loop (advance rotation only if running)
+  function updateRotation() {
+    if (isRunning) {
+      rotation += rotationSpeed;
+      // wrap rotation reasonably
+      if (rotation > Math.PI*2) rotation -= Math.PI*2;
+    }
+    requestAnimationFrame(updateRotation);
+  }
+
+  // initial setup
+  populateDropdown();
+  resizeCanvas();
+  render();
+  updateRotation();
+
+  // start auto-run 2 minutes on first load
+  startAutoRun(120000);
+
+  // small UX: if user leaves page and returns, ensure canvas resizes
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') resizeCanvas();
+  });
+
+  console.log("Phenakistoscope ready. Images available in dropdown:", imageFiles.length);
+}; // end window.onload
 </script>
 </body>
-</html>
+</html>ZZ
