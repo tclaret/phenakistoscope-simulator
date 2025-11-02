@@ -42,6 +42,7 @@ window.onload = function() {
   const lightSlider = document.getElementById('light');
   const lightValue = document.getElementById('lightValue');
   const toggleInset = document.getElementById('toggleInset');
+  const themeToggle = document.getElementById('themeToggle');
   const insetDiv = document.getElementById('inset');
   const spinner = document.getElementById('spinner');
   const status = document.getElementById('status');
@@ -200,6 +201,27 @@ window.onload = function() {
     showInset = !showInset;
     insetDiv.style.display = showInset ? 'block' : 'none';
   });
+
+  // theme toggle: read saved preference and wire button
+  function applyTheme(mode){
+    const doc = document.documentElement;
+    if(mode === 'dark') doc.classList.add('dark');
+    else doc.classList.remove('dark');
+    // update button label
+    if(themeToggle) themeToggle.textContent = mode === 'dark' ? '☀️ Light' : '🌙 Dark';
+  }
+
+  // load saved theme (default to light)
+  const savedTheme = localStorage.getItem('phenak-theme') || 'light';
+  applyTheme(savedTheme);
+
+  if(themeToggle){
+    themeToggle.addEventListener('click', ()=>{
+      const now = document.documentElement.classList.contains('dark') ? 'light' : 'dark';
+      applyTheme(now);
+      localStorage.setItem('phenak-theme', now);
+    });
+  }
 
   // dropdown change
   discSelect.addEventListener('change', loadSelectedDisc);
