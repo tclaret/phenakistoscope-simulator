@@ -455,28 +455,27 @@
       ];
 
       // DOM
-      const discSelect = document.getElementById('discSelect');
-      const thumbnail = document.getElementById('thumbnail');
-      const fileInput = document.getElementById('fileInput');
-      const imageUrl = document.getElementById('imageUrl');
-      const loadUrlBtn = document.getElementById('loadUrl');
-      const viewModeSel = document.getElementById('viewMode');
+      const discSelect  = document.getElementById('discSelect');
+      const thumbnail    = document.getElementById('thumbnail');
+      const fileInput    = document.getElementById('fileInput');
+      const imageUrl     = document.getElementById('imageUrl');
+      const loadUrlBtn   = document.getElementById('loadUrl');
+      const viewModeSel  = document.getElementById('viewMode');
       const startStopBtn = document.getElementById('startStop');
-      const resetBtn = document.getElementById('resetBtn');
-      const indicator = document.getElementById('indicator');
-      const speed = document.getElementById('speed');
-      const speedValue = document.getElementById('speedValue');
-      const toggleInset = document.getElementById('toggleInset');
-      const insetDiv = document.getElementById('inset');
-      const spinner = document.getElementById('spinner');
-      const status = document.getElementById('status');
-      const glow = document.getElementById('glow');
-
-      const canvas = document.getElementById('viewCanvas');
+      const resetBtn     = document.getElementById('resetBtn');
+      const indicator    = document.getElementById('indicator');
+      const speed        = document.getElementById('speed');
+      const speedValue   = document.getElementById('speedValue');
+      const toggleInset  = document.getElementById('toggleInset');
+      const insetDiv     = document.getElementById('inset');
+      const spinner      = document.getElementById('spinner');
+      const status       = document.getElementById('status');
+      const glow         = document.getElementById('glow');
+      const canvas       = document.getElementById('viewCanvas');
       const ctx = canvas.getContext('2d');
 
-      const insetCanvas = document.getElementById('insetCanvas');
-      const insetCtx = insetCanvas.getContext('2d');
+      const insetCanvas   = document.getElementById('insetCanvas');
+      const insetCtx      = insetCanvas.getContext('2d');
 
       // state
       let discImage = new Image();       // the currently displayed disc image (from images/ or uploaded)
@@ -484,7 +483,7 @@
       let backgroundFrame = new Image(); // optional frame (we have frame_2.png in images/)
       backgroundFrame.src = "images/frame_2.png";
 
-      let viewMode = 'photo'; // photo | simulation | realistic
+      let viewMode = 'simulation'; // photo | simulation | realistic
       let isRunning = false;
       let rotation = 0;
       let rotationSpeed = parseFloat(speed.value) || 0.02;
@@ -703,7 +702,6 @@
       // draw inset circular preview
       function drawInset() {
         insetCtx.clearRect(0, 0, insetCanvas.width, insetCanvas.height);
-        if (!showInset) return;
         insetCtx.save();
         insetCtx.translate(insetCanvas.width / 2, insetCanvas.height / 2);
         insetCtx.rotate(rotation);
