@@ -372,7 +372,6 @@
                 <option value="simulation">Simulation</option>
                 <option value="realistic">Realistic</option>
               </select>
-              <button id="toggleInset" class="mini">Toggle Inset</button>
             </div>
           </div>
 
@@ -861,11 +860,7 @@
         speedValue.textContent = rotationSpeed.toFixed(3);
       });
 
-      // toggle inset
-      toggleInset.addEventListener('click', () => {
-        showInset = !showInset;
-        insetDiv.style.display = showInset ? 'block' : 'none';
-      });
+  // (toggle inset removed)
 
       // dropdown change
       discSelect.addEventListener('change', () => { loadSelectedDisc(); });
