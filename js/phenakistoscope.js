@@ -62,7 +62,7 @@ window.onload = function() {
   // state
   let discImage = new Image();
   let backgroundFrame = new Image();
-  backgroundFrame.src = "images/frame_2.png";
+  backgroundFrame.src = "images/Dancing.jpg";
 
   let viewMode = 'photo';
   let isRunning = false;
