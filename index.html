@@ -4,8 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Phenakistoscope Simulator — Explore the Earliest Animation Discs</title>
-<link rel="stylesheet" href="css/style.css">
-<script src="js/phenakistoscope.js"></script>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="container">
@@ -58,6 +57,19 @@
               <div class="speedValue" id="lightValue">0.60</div>
             </div>
 
+            <!-- NEW: slit controls -->
+            <div style="display:flex;gap:8px;align-items:center">
+              <label for="slits">Slits</label>
+              <input id="slits" type="range" min="4" max="60" step="1" value="12" />
+              <div class="speedValue" id="slitsValue">12</div>
+            </div>
+
+            <div style="display:flex;gap:8px;align-items:center">
+              <label for="slitLen">Slit length</label>
+              <input id="slitLen" type="range" min="1" max="40" step="1" value="10" />
+              <div class="speedValue" id="slitLenValue">10°</div>
+            </div>
+
             <div style="display:flex;gap:8px;align-items:center">
               <label for="viewMode">View</label>
               <select id="viewMode">
@@ -66,7 +78,6 @@
                 <option value="realistic">Realistic</option>
               </select>
               <button id="toggleInset" class="btn">Toggle Inset</button>
-              <button id="themeToggle" class="btn">🌙 Dark</button>
             </div>
           </div>
         </div>
@@ -100,5 +111,8 @@
     </div>
   </div>
 </div>
+
+<script src="phenakistoscope.js"></script>
 </body>
 </html>
+

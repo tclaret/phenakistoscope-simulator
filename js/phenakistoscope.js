@@ -1,5 +1,8 @@
+// phenakistoscope.js
+// Separated JS for the simulator. Make sure this file is saved next to index.html.
+
 window.onload = function() {
-  console.log("Phenakistoscope v3 starting...");
+  console.log("Phenakistoscope v3 (separated JS) starting...");
 
   // All images from your images/ folder (use exactly these filenames)
   const imageFiles = [
@@ -42,11 +45,16 @@ window.onload = function() {
   const lightSlider = document.getElementById('light');
   const lightValue = document.getElementById('lightValue');
   const toggleInset = document.getElementById('toggleInset');
-  const themeToggle = document.getElementById('themeToggle');
   const insetDiv = document.getElementById('inset');
   const spinner = document.getElementById('spinner');
   const status = document.getElementById('status');
   const glow = document.getElementById('glow');
+
+  // NEW slit controls
+  const slitsSlider = document.getElementById('slits');
+  const slitsValue = document.getElementById('slitsValue');
+  const slitLenSlider = document.getElementById('slitLen');
+  const slitLenValue = document.getElementById('slitLenValue');
 
   const canvas = document.getElementById('viewCanvas');
   const ctx = canvas.getContext('2d');
@@ -66,6 +74,10 @@ window.onload = function() {
   let showInset = false;
   let autoStopTimer = null;
   let glowIntensity = parseFloat(lightSlider.value);
+
+  // slit state
+  let slitCount = parseInt(slitsSlider.value || 12);
+  let slitLengthDeg = parseInt(slitLenSlider.value || 10);
 
   // drag spin variables
   let isDragging = false;
@@ -196,32 +208,21 @@ window.onload = function() {
     lightValue.textContent = glowIntensity.toFixed(2);
   });
 
+  // slit sliders listeners (NEW)
+  slitsSlider.addEventListener('input', (e) => {
+    slitCount = parseInt(e.target.value, 10);
+    slitsValue.textContent = slitCount;
+  });
+  slitLenSlider.addEventListener('input', (e) => {
+    slitLengthDeg = parseInt(e.target.value, 10);
+    slitLenValue.textContent = slitLengthDeg + "°";
+  });
+
   // toggle inset
   toggleInset.addEventListener('click', ()=>{
     showInset = !showInset;
     insetDiv.style.display = showInset ? 'block' : 'none';
   });
-
-  // theme toggle: read saved preference and wire button
-  function applyTheme(mode){
-    const doc = document.documentElement;
-    if(mode === 'dark') doc.classList.add('dark');
-    else doc.classList.remove('dark');
-    // update button label
-    if(themeToggle) themeToggle.textContent = mode === 'dark' ? '☀️ Light' : '🌙 Dark';
-  }
-
-  // load saved theme (default to light)
-  const savedTheme = localStorage.getItem('phenak-theme') || 'light';
-  applyTheme(savedTheme);
-
-  if(themeToggle){
-    themeToggle.addEventListener('click', ()=>{
-      const now = document.documentElement.classList.contains('dark') ? 'light' : 'dark';
-      applyTheme(now);
-      localStorage.setItem('phenak-theme', now);
-    });
-  }
 
   // dropdown change
   discSelect.addEventListener('change', loadSelectedDisc);
@@ -259,11 +260,9 @@ window.onload = function() {
     ctx.clearRect(0,0,canvas.width,canvas.height);
     const cx = canvas.width/2, cy = canvas.height/2;
     const r = canvas.width * 0.42;
-    // subtle background
     ctx.fillStyle = "#000";
     ctx.fillRect(0,0,canvas.width,canvas.height);
 
-    // faint frame behind
     if(backgroundFrame.complete && backgroundFrame.naturalWidth>0){
       ctx.save();
       ctx.globalAlpha = 0.06;
@@ -273,7 +272,6 @@ window.onload = function() {
       ctx.restore();
     }
 
-    // shadow
     ctx.beginPath(); ctx.arc(cx, cy + r*0.06, r*1.02, 0, Math.PI*2); ctx.fillStyle = "rgba(0,0,0,0.45)"; ctx.fill();
 
     if(discImage && discImage.complete && discImage.naturalWidth>0){
@@ -284,10 +282,9 @@ window.onload = function() {
       ctx.drawImage(discImage, -iw/2, -ih/2, iw, ih); ctx.restore();
     }
 
-    // rim
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.lineWidth = Math.max(6, canvas.width*0.008); ctx.strokeStyle = "rgba(255,255,255,0.06)"; ctx.stroke();
 
-    // holes ring
+    // holes ring (decorative)
     const holes = 24;
     const holeR = Math.max(4, canvas.width*0.006);
     for(let i=0;i<holes;i++){
@@ -297,16 +294,14 @@ window.onload = function() {
       ctx.lineWidth = 1; ctx.strokeStyle = "rgba(255,255,255,0.04)"; ctx.stroke();
     }
 
-    // center pin
     ctx.beginPath(); ctx.arc(cx,cy,Math.max(6,canvas.width*0.01),0,Math.PI*2); ctx.fillStyle="#222"; ctx.fill();
     ctx.lineWidth=2; ctx.strokeStyle="rgba(255,255,255,0.06)"; ctx.stroke();
 
-    // vignette
     const g = ctx.createRadialGradient(cx,cy,r*0.2,cx,cy,r*1.1); g.addColorStop(0,"rgba(0,0,0,0)"); g.addColorStop(1,"rgba(0,0,0,0.45)");
     ctx.fillStyle = g; ctx.fillRect(0,0,canvas.width,canvas.height);
   }
 
-  // simulation mode: flat spinning with slit mask
+  // simulation mode: flat spinning with slit mask using slitCount & slitLengthDeg
   function drawSimulation(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
     const cx = canvas.width/2, cy = canvas.height/2;
@@ -318,15 +313,20 @@ window.onload = function() {
       const iw = discImage.width*s, ih = discImage.height*s; ctx.drawImage(discImage,-iw/2,-ih/2,iw,ih); ctx.restore();
     }
 
-    // slit mask
-    const slits = 12; const slitW = 10 * Math.PI/180;
+    // dynamic slits from sliders
+    const slits = slitCount || 12;
+    const slitW = (slitLengthDeg || 10) * Math.PI/180;
     ctx.save(); ctx.translate(cx,cy); ctx.rotate(-rotation);
     ctx.globalCompositeOperation = "destination-in"; ctx.beginPath();
-    for(let i=0;i<slits;i++){ const a = i*(2*Math.PI/slits)-slitW/2; ctx.moveTo(0,0); ctx.arc(0,0,Math.max(canvas.width,canvas.height),a,a+slitW); }
+    for(let i=0;i<slits;i++){
+      const a = i*(2*Math.PI/slits)-slitW/2;
+      ctx.moveTo(0,0);
+      ctx.arc(0,0,Math.max(canvas.width,canvas.height),a,a+slitW);
+    }
     ctx.fillStyle="#fff"; ctx.fill(); ctx.restore();
   }
 
-  // realistic mode: small mirrored disc + subtle overlay
+  // realistic mode: mirrored small disc + subtle overlay
   function drawRealistic(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
     if(backgroundFrame && backgroundFrame.complete && backgroundFrame.naturalWidth>0){
@@ -361,7 +361,6 @@ window.onload = function() {
 
   // main render loop
   function render(){
-    // glow uses running state and light slider
     const glowOp = isRunning ? (0.4 + 0.6*Math.abs(Math.sin(rotation*0.2))) * glowIntensity : 0.05 * glowIntensity;
     drawGlow(glowOp);
 
@@ -375,22 +374,17 @@ window.onload = function() {
 
   // physics: update rotation by velocity; apply friction when not driven
   function physicsStep(){
-    // if running and no manual velocity (i.e., autoplay), ensure velocity approaches rotationSpeed
     if(isRunning && Math.abs(rotationVelocity) < Math.abs(rotationSpeed*1.2)){
-      // gradually nudge velocity toward rotationSpeed (same direction)
       const target = rotationSpeed * Math.sign(rotationVelocity || 1);
       rotationVelocity += (target - rotationVelocity) * 0.03;
     }
-    // apply velocity
     rotation += rotationVelocity;
-    // friction / decay
     rotationVelocity *= isDragging ? 0.995 : 0.995;
-    // keep within reasonable range
     if(Math.abs(rotationVelocity) < 0.000001) rotationVelocity = 0;
     requestAnimationFrame(physicsStep);
   }
 
-  // convert pointer to angle around canvas center
+  // pointer helpers
   function pointerAngle(clientX, clientY){
     const rect = canvas.getBoundingClientRect();
     const cx = rect.left + rect.width/2;
@@ -398,27 +392,23 @@ window.onload = function() {
     return Math.atan2(clientY - cy, clientX - cx);
   }
 
-  // pointer handlers for drag-to-spin
   function onPointerDown(e){
     isDragging = true;
     pointerVelSamples = [];
     lastPointerAngle = pointerAngle(e.clientX, e.clientY);
     lastPointerTime = performance.now();
-    canvas.setPointerCapture(e.pointerId);
+    try { canvas.setPointerCapture(e.pointerId); } catch(e){}
   }
   function onPointerMove(e){
     if(!isDragging) return;
     const now = performance.now();
     const angle = pointerAngle(e.clientX, e.clientY);
     let delta = angle - lastPointerAngle;
-    // normalize delta to [-PI, PI]
     while(delta > Math.PI) delta -= 2*Math.PI;
     while(delta < -Math.PI) delta += 2*Math.PI;
-    // apply immediate rotation (user dragging rotates disc)
     rotation += delta;
-    // sample velocity
     const dt = Math.max(1, now - lastPointerTime);
-    pointerVelSamples.push({v: delta / (dt/16.6667), t: now}); // normalized per frame
+    pointerVelSamples.push({v: delta / (dt/16.6667), t: now});
     if(pointerVelSamples.length > 6) pointerVelSamples.shift();
     lastPointerAngle = angle;
     lastPointerTime = now;
@@ -426,7 +416,6 @@ window.onload = function() {
   function onPointerUp(e){
     if(!isDragging) return;
     isDragging = false;
-    // estimate velocity from recent samples
     if(pointerVelSamples.length){
       let sum=0, weight=0;
       for(let i=0;i<pointerVelSamples.length;i++){
@@ -436,24 +425,22 @@ window.onload = function() {
         weight += w;
       }
       let est = weight? sum/weight : 0;
-      // scale by speed slider to allow stronger flicks at higher speed
       rotationVelocity = est * (Math.max(0.5, rotationSpeed*25));
     }
     pointerVelSamples = [];
   }
 
-  // event binding for pointer drag (supports touch & mouse)
+  // events
   canvas.addEventListener('pointerdown', onPointerDown);
   canvas.addEventListener('pointermove', onPointerMove);
   canvas.addEventListener('pointerup', onPointerUp);
   canvas.addEventListener('pointercancel', onPointerUp);
   canvas.addEventListener('pointerleave', onPointerUp);
 
-  // auto-start for 2 minutes
+  // auto-start 2 minutes
   function startAuto(duration=120000){
     if(!isRunning){
       isRunning = true; indicator.classList.add('on'); startStop.textContent="⏸ Pause"; status.textContent="Auto-play";
-      // seed a small velocity so it rotates immediately
       rotationVelocity = rotationSpeed;
     }
     if(autoStopTimer) clearTimeout(autoStopTimer);
@@ -468,13 +455,10 @@ window.onload = function() {
   resizeCanvas();
   render();
   physicsStep();
-
-  // auto-play on load (2 minutes)
   startAuto(120000);
 
   // expose some console debugging
   console.log("Ready. Images:", imageFiles.length, "Default:", discSelect.value);
 
-  // ensure canvas resizing on visibility change
   document.addEventListener('visibilitychange', () => { if(document.visibilityState==='visible') resizeCanvas(); });
 };
