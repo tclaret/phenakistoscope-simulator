@@ -11,7 +11,6 @@ window.onload = function() {
     "AEO175939_PhenakistoscopeGiroux60.jpg",
     "AEO185553_PhenakistiscopeDisc_ManInBlueAndRed.jpg",
     "Dancing.jpg",
-    "frame_2.png",
     "Gernamy_1949_R_Balzer.png",
     "Jongleur.png",
     "jongleur.png",
