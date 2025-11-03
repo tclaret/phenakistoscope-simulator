@@ -44,17 +44,15 @@ window.onload = function() {
   const speedValue = document.getElementById('speedValue');
   const lightSlider = document.getElementById('light');
   const lightValue = document.getElementById('lightValue');
+  const slitsSlider = document.getElementById('slits');
+  const slitsValue = document.getElementById('slitsValue');
+  const slitLenSlider = document.getElementById('slitLen');
+  const slitLenValue = document.getElementById('slitLenValue');
   const toggleInset = document.getElementById('toggleInset');
   const insetDiv = document.getElementById('inset');
   const spinner = document.getElementById('spinner');
   const status = document.getElementById('status');
   const glow = document.getElementById('glow');
-
-  // NEW slit controls
-  const slitsSlider = document.getElementById('slits');
-  const slitsValue = document.getElementById('slitsValue');
-  const slitLenSlider = document.getElementById('slitLen');
-  const slitLenValue = document.getElementById('slitLenValue');
 
   const canvas = document.getElementById('viewCanvas');
   const ctx = canvas.getContext('2d');
@@ -78,6 +76,9 @@ window.onload = function() {
   // slit state
   let slitCount = parseInt(slitsSlider.value || 12);
   let slitLengthDeg = parseInt(slitLenSlider.value || 10);
+  // initialize display values
+  if (slitsValue) slitsValue.textContent = slitCount;
+  if (slitLenValue) slitLenValue.textContent = slitLengthDeg + "°";
 
   // drag spin variables
   let isDragging = false;
@@ -95,8 +96,13 @@ window.onload = function() {
       opt.value = f; opt.textContent = f;
       discSelect.appendChild(opt);
     });
-    // default first
-    discSelect.selectedIndex = 0;
+    // choose a sensible default (prefer Dancing.jpg if present)
+    const defaultFile = "Dancing.jpg";
+    if (imageFiles.indexOf(defaultFile) !== -1) {
+      discSelect.value = defaultFile;
+    } else {
+      discSelect.selectedIndex = 0;
+    }
     loadSelectedDisc();
   }
 
