@@ -331,25 +331,7 @@ window.onload = function() {
     ctx.fillStyle="#fff"; ctx.fill(); ctx.restore();
   }
 
-  // realistic mode: mirrored small disc + subtle overlay
-  function drawRealistic(){
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    if(backgroundFrame && backgroundFrame.complete && backgroundFrame.naturalWidth>0){
-      ctx.save(); ctx.globalAlpha = 0.12;
-      const s = Math.min(canvas.width/backgroundFrame.naturalWidth, canvas.height/backgroundFrame.naturalHeight)*1.2;
-      const bw = backgroundFrame.naturalWidth*s, bh = backgroundFrame.naturalHeight*s; ctx.drawImage(backgroundFrame,(canvas.width-bw)/2,(canvas.height-bh)/2,bw,bh); ctx.restore();
-    }
-
-    const cx = canvas.width/2, cy = canvas.height/2, r = canvas.width*0.35;
-    ctx.save(); ctx.translate(cx,cy); ctx.scale(-1,1); ctx.rotate(rotation);
-    if(discImage && discImage.complete && discImage.naturalWidth>0){
-      const s = Math.max((r*2)/discImage.width, (r*2)/discImage.height);
-      ctx.drawImage(discImage,-r,-r,r*2,r*2);
-    }
-    ctx.restore();
-
-    ctx.save(); ctx.globalAlpha = 0.25; ctx.fillStyle="black"; ctx.fillRect(0,cy-60,canvas.width,120); ctx.restore();
-  }
+ 
 
   // inset draw
   function drawInset(){
