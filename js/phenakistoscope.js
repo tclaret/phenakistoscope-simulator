@@ -6,11 +6,11 @@ window.onload = function() {
 
   // All images from your images/ folder (use exactly these filenames)
   const imageFiles = [
-    "Dancing.jpg",
-    "9965f708-6fd1-43a3-8b4a-9b29a187c1f8.png",
     "a_cheval.png",
     "AEO175939_PhenakistoscopeGiroux60.jpg",
     "AEO185553_PhenakistiscopeDisc_ManInBlueAndRed.jpg",
+    "Dancing.jpg",
+    "frame_2.png",
     "Gernamy_1949_R_Balzer.png",
     "Jongleur.png",
     "jongleur.png",
@@ -43,15 +43,17 @@ window.onload = function() {
   const speedValue = document.getElementById('speedValue');
   const lightSlider = document.getElementById('light');
   const lightValue = document.getElementById('lightValue');
-  const slitsSlider = document.getElementById('slits');
-  const slitsValue = document.getElementById('slitsValue');
-  const slitLenSlider = document.getElementById('slitLen');
-  const slitLenValue = document.getElementById('slitLenValue');
   const toggleInset = document.getElementById('toggleInset');
   const insetDiv = document.getElementById('inset');
   const spinner = document.getElementById('spinner');
   const status = document.getElementById('status');
   const glow = document.getElementById('glow');
+
+  // NEW slit controls
+  const slitsSlider = document.getElementById('slits');
+  const slitsValue = document.getElementById('slitsValue');
+  const slitLenSlider = document.getElementById('slitLen');
+  const slitLenValue = document.getElementById('slitLenValue');
 
   const canvas = document.getElementById('viewCanvas');
   const ctx = canvas.getContext('2d');
@@ -61,7 +63,7 @@ window.onload = function() {
   // state
   let discImage = new Image();
   let backgroundFrame = new Image();
-  backgroundFrame.src = "images/Dancing.jpg";
+  backgroundFrame.src = "images/frame_2.png";
 
   let viewMode = 'photo';
   let isRunning = false;
@@ -75,9 +77,6 @@ window.onload = function() {
   // slit state
   let slitCount = parseInt(slitsSlider.value || 12);
   let slitLengthDeg = parseInt(slitLenSlider.value || 10);
-  // initialize display values
-  if (slitsValue) slitsValue.textContent = slitCount;
-  if (slitLenValue) slitLenValue.textContent = slitLengthDeg + "°";
 
   // drag spin variables
   let isDragging = false;
@@ -95,13 +94,8 @@ window.onload = function() {
       opt.value = f; opt.textContent = f;
       discSelect.appendChild(opt);
     });
-    // choose a sensible default (prefer Dancing.jpg if present)
-    const defaultFile = "Dancing.jpg";
-    if (imageFiles.indexOf(defaultFile) !== -1) {
-      discSelect.value = defaultFile;
-    } else {
-      discSelect.selectedIndex = 0;
-    }
+    // default first
+    discSelect.selectedIndex = 0;
     loadSelectedDisc();
   }
 
@@ -331,8 +325,6 @@ window.onload = function() {
     ctx.fillStyle="#fff"; ctx.fill(); ctx.restore();
   }
 
- 
-
   // inset draw
   function drawInset(){
     insetCtx.clearRect(0,0,insetCanvas.width,insetCanvas.height);
@@ -351,9 +343,8 @@ window.onload = function() {
     const glowOp = isRunning ? (0.4 + 0.6*Math.abs(Math.sin(rotation*0.2))) * glowIntensity : 0.05 * glowIntensity;
     drawGlow(glowOp);
 
-    if(viewMode === 'photo') drawPhoto();
-    else if(viewMode === 'simulation') drawSimulation();
-    else drawRealistic();
+    if(viewMode === 'simulation') drawSimulation();
+    else if(viewMode === 'photo') drawPhoto();
 
     drawInset();
     requestAnimationFrame(render);
