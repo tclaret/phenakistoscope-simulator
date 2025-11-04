@@ -6,11 +6,11 @@ window.onload = function() {
 
   // All images from your images/ folder (use exactly these filenames)
   const imageFiles = [
+    "Dancing.jpg",
     "9965f708-6fd1-43a3-8b4a-9b29a187c1f8.png",
     "a_cheval.png",
     "AEO175939_PhenakistoscopeGiroux60.jpg",
     "AEO185553_PhenakistiscopeDisc_ManInBlueAndRed.jpg",
-    "Dancing.jpg",
     "Gernamy_1949_R_Balzer.png",
     "Jongleur.png",
     "jongleur.png",
