@@ -62,7 +62,7 @@ window.onload = function() {
   let backgroundFrame = new Image();
   backgroundFrame.src = "images/frame_2.png";
 
-  let viewMode = 'photo';
+  let viewMode = 'simulation';
   let isRunning = false;
   let rotation = 0;
   let rotationVelocity = 0;   // actual angular velocity (radians/frame)
