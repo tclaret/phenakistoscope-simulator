@@ -1,117 +1,487 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Phenakistoscope Simulator — Explore the Earliest Animation Discs</title>
-<link rel="stylesheet" href="css/style.css">
-</head>
-<body>
-<div class="container">
-  <header>
-    <h1>Phenakistoscope Simulator — Explore the Earliest Animation Discs</h1>
-    <div style="font-size:13px;color:var(--muted)">Interactive viewer — choose a disc, drag to spin, or use controls.</div>
-  </header>
+// phenakistoscope.js
+// Separated JS for the simulator. Make sure this file is saved next to index.html.
 
-  <div class="layout">
-    <div class="panel controlsPanel">
-      <div class="instrument">
-        <div class="controls-top">
-          <div>
-            <label for="discSelect">Choose a disc</label>
-            <select id="discSelect"></select>
-            <div class="thumbnail">
-              <img id="thumbnail" class="thumbImg" src="" alt="selected disc">
-            </div>
-          </div>
+window.onload = function() {
+  console.log("Phenakistoscope v3 (separated JS) starting...");
 
-          <div>
-            <label for="fileInput">Upload image</label>
-            <input id="fileInput" type="file" accept="image/*" />
-            <label style="margin-top:8px">Or paste image URL</label>
-            <div style="display:flex;gap:8px">
-              <input id="imageUrl" type="text" placeholder="https://...jpg" />
-              <button id="loadUrl" class="btn">Load</button>
-            </div>
-          </div>
-        </div>
+  // All images from your images/ folder (use exactly these filenames)
+  const imageFiles = [
+    "a_cheval.png",
+    "AEO175939_PhenakistoscopeGiroux60.jpg",
+    "AEO185553_PhenakistiscopeDisc_ManInBlueAndRed.jpg",
+    "Dancing.jpg",
+    "Gernamy_1949_R_Balzer.png",
+    "Jongleur.png",
+    "McLean_1.png",
+    "medium_1990_5036_3369.jpg",
+    "medium_a001813b.jpg",
+    "phenakistoscope-4.gif",
+    "tumblr_oc1czn99ZM1r9jbwno1_500.png",
+    "tumblr_oc1d3skVsF1r9jbwno1_500.png",
+    "tumblr_oc1d4wZeB81r9jbwno1_500.png",
+    "tumblr_oc1d6377G91r9jbwno1_500.png",
+    "tumblr_oc1d7io0Kp1r9jbwno1_500.png",
+    "tumblr_oc1da70gPN1r9jbwno1_500.png",
+    "WomanChoppingTree.jpg"
+  ];
 
-        <div style="border-top:1px solid rgba(255,255,255,0.03);padding-top:10px">
-          <div class="controls-bottom">
-            <div style="display:flex;align-items:center;gap:8px">
-              <button id="startStop" class="btn">▶️ Start</button>
-              <div id="indicator" class="indicator"></div>
-              <button id="reverseBtn" class="btn">⇄ Reverse</button>
-              <button id="resetBtn" class="btn">🔁 Reset</button>
-            </div>
+  // DOM refs
+  const discSelect = document.getElementById('discSelect');
+  const thumbnail = document.getElementById('thumbnail');
+  const fileInput = document.getElementById('fileInput');
+  const imageUrl = document.getElementById('imageUrl');
+  const loadUrl = document.getElementById('loadUrl');
+  const viewModeSel = document.getElementById('viewMode');
+  const startStop = document.getElementById('startStop');
+  const reverseBtn = document.getElementById('reverseBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const indicator = document.getElementById('indicator');
+  const speedSlider = document.getElementById('speed');
+  const speedValue = document.getElementById('speedValue');
+  const lightSlider = document.getElementById('light');
+  const lightValue = document.getElementById('lightValue');
+  const toggleInset = document.getElementById('toggleInset');
+  const insetDiv = document.getElementById('inset');
+  const spinner = document.getElementById('spinner');
+  const status = document.getElementById('status');
+  const glow = document.getElementById('glow');
 
-            <div class="speedWrap">
-              <label for="speed">Speed</label>
-              <input id="speed" type="range" min="0.001" max="0.12" step="0.001" value="0.02" />
-              <div class="speedValue" id="speedValue">0.020</div>
-            </div>
+  // NEW slit controls
+  const slitsSlider = document.getElementById('slits');
+  const slitsValue = document.getElementById('slitsValue');
+  const slitLenSlider = document.getElementById('slitLen');
+  const slitLenValue = document.getElementById('slitLenValue');
 
-            <div style="display:flex;gap:8px;align-items:center">
-              <label for="light">Light</label>
-              <input id="light" type="range" min="0" max="1" step="0.01" value="0.6" />
-              <div class="speedValue" id="lightValue">0.60</div>
-            </div>
+  const canvas = document.getElementById('viewCanvas');
+  const ctx = canvas.getContext('2d');
+  const insetCanvas = document.getElementById('insetCanvas');
+  const insetCtx = insetCanvas.getContext('2d');
 
-            <!-- NEW: slit controls -->
-            <div style="display:flex;gap:8px;align-items:center">
-              <label for="slits">Slits</label>
-              <input id="slits" type="range" min="4" max="60" step="1" value="12" />
-              <div class="speedValue" id="slitsValue">12</div>
-            </div>
+  // state
+  let discImage = new Image();
+  let backgroundFrame = new Image();
+  backgroundFrame.src = "images/frame_2.png";
 
-            <div style="display:flex;gap:8px;align-items:center">
-              <label for="slitLen">Slit length</label>
-              <input id="slitLen" type="range" min="1" max="40" step="1" value="10" />
-              <div class="speedValue" id="slitLenValue">10°</div>
-            </div>
+  let viewMode = 'simulation'; // DÉFAUT MAINTENANT SUR 'simulation'
+  let isRunning = false;
+  let rotation = 0;
+  let rotationVelocity = 0;   // actual angular velocity (radians/frame)
+  let rotationSpeed = parseFloat(speedSlider.value); // base speed used for auto-run
+  let showInset = false;
+  let autoStopTimer = null;
+  let glowIntensity = parseFloat(lightSlider.value);
 
-            <div style="display:flex;gap:8px;align-items:center">
-              <label for="viewMode">View</label>
-              <select id="viewMode">
-                <option value="photo">Photo</option>
-                <option value="simulation">Simulation</option>
-              </select>
-              <button id="toggleInset" class="btn">Toggle Inset</button>
-            </div>
-          </div>
-        </div>
+  // NOUVEAU: Offset pour le centrage de l'image
+  let offsetX = 0;
+  let offsetY = 0;
 
-        <div style="margin-top:6px;color:var(--muted);font-size:13px">Status: <span id="status">Ready</span></div>
-      </div>
-    </div>
+  // slit state
+  let slitCount = parseInt(slitsSlider.value || 12);
+  let slitLengthDeg = parseInt(slitLenSlider.value || 10);
 
-    <div class="panel viewer">
-      <div class="canvasWrap">
-        <div id="glow" class="glowRing" style="width:860px;height:860px;opacity:0;"></div>
+  // drag spin variables
+  let isDragging = false;
+  let lastPointerAngle = 0;
+  let lastPointerTime = 0;
+  let pointerVelSamples = []; // recent samples of angular velocity
 
-        <canvas id="viewCanvas" width="800" height="800" aria-label="Phenakistoscope view"></canvas>
+  // helpers
+  function pathFor(filename){ return "images/" + filename; }
 
-        <div id="inset" class="inset">
-          <canvas id="insetCanvas" width="200" height="200"></canvas>
-        </div>
+  function populateDropdown(){
+    discSelect.innerHTML = '';
+    imageFiles.forEach((f) => {
+      const opt = document.createElement('option');
+      opt.value = f; opt.textContent = f;
+      discSelect.appendChild(opt);
+    });
+    // default first
+    discSelect.selectedIndex = 0;
+    loadSelectedDisc();
+    // Sélectionner 'simulation' par défaut dans le HTML
+    viewModeSel.value = 'simulation';
+  }
 
-        <div id="spinner" class="spinner"><div class="dot"></div></div>
-      </div>
+  function showSpinner(on){ spinner.classList.toggle('visible', !!on); }
 
-      <footer class="about">
-        <strong>About the phenakistoscope</strong>
-        <p style="margin:6px 0 8px 0;color:var(--muted)">The phenakistoscope (also spelled phenakistiscope) is an early animation device that creates the illusion of motion from a sequence of pictures. Select a disc to view the animation and experiment with speed, lighting, and manual spinning.</p>
-        <div style="display:flex;gap:12px;flex-wrap:wrap">
-          <a href="https://en.wikipedia.org/wiki/Phenakistiscope" target="_blank" rel="noopener">Wikipedia — Phenakistiscope</a>
-          <a href="https://www.acmi.net.au/works/100515--phenakistoscope-discs/" target="_blank" rel="noopener">ACMI — Phenakistoscope Discs</a>
-          <a href="https://www.fantasy-animation.org/current-posts/what-is-a-phenakistoscope" target="_blank" rel="noopener">What is a Phenakistoscope? — Fantasy Animation</a>
-        </div>
-      </footer$\texttt{requestAnimationFrame}$>
-    </div>
-  </div>
-</div>
+  function updateThumbnail(src){
+    thumbnail.style.opacity = 0;
+    thumbnail.onload = () => { thumbnail.style.opacity = 1; };
+    thumbnail.src = src;
+  }
+  
+  // NOUVEAU: Centrage automatique
+  function centerDisc() {
+    if (!discImage || !discImage.width) {
+      resetDiscOffset();
+      return;
+    }
+    // Simple guess: assume the disc is centered based on image dimensions
+    // We want the image's center (width/2, height/2) to align with the canvas center (0,0 translation point)
+    offsetX = -(discImage.width * 0.5);
+    offsetY = -(discImage.height * 0.5);
 
-<script src="js/phenakistoscope.js" defer></script>
-</body>
-</html>
+    status.textContent = `Centrage ajusté (dx: ${offsetX.toFixed(0)}, dy: ${offsetY.toFixed(0)})`;
+  }
 
+  function resetDiscOffset() {
+    offsetX = 0;
+    offsetY = 0;
+    status.textContent = "Centrage réinitialisé (offset 0)";
+  }
+
+
+  // load from images/ folder (photo mode default)
+  function loadSelectedDisc(){
+    const f = discSelect.value;
+    if(!f) return;
+    const p = pathFor(f);
+    showSpinner(true);
+    const img = new Image();
+    img.onload = () => {
+      discImage = img;
+      centerDisc(); // Centrer après le chargement
+      updateThumbnail(p);
+      status.textContent = "Loaded " + f;
+      showSpinner(false);
+      console.log("Loaded", p);
+    };
+    img.onerror = (e) => {
+      status.textContent = "Error loading " + f;
+      showSpinner(false);
+      console.error("Error loading image", p, e);
+    };
+    img.src = p;
+  }
+
+  // local upload via FileReader -> base64 data URL
+  fileInput.addEventListener('change', (e)=>{
+    const f = e.target.files && e.target.files[0];
+    if(!f) return;
+    showSpinner(true);
+    status.textContent = "Loading local file...";
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        discImage = img;
+        centerDisc(); // Centrer après le chargement
+        updateThumbnail(ev.target.result);
+        status.textContent = "Loaded local " + f.name;
+        showSpinner(false);
+        console.log("Local loaded", f.name);
+      };
+      img.onerror = () => { status.textContent = "Failed to load local file"; showSpinner(false); };
+      img.src = ev.target.result;
+    };
+    reader.onerror = () => { status.textContent = "File read error"; showSpinner(false); };
+    reader.readAsDataURL(f);
+  });
+
+  // load by URL
+  loadUrl.addEventListener('click', ()=>{
+    const url = imageUrl.value.trim();
+    if(!url) { status.textContent = "Enter image URL"; return; }
+    showSpinner(true); status.textContent = "Loading URL...";
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      discImage = img;
+      centerDisc(); // Centrer après le chargement
+      updateThumbnail(url);
+      status.textContent = "Loaded from URL";
+      showSpinner(false);
+    };
+    img.onerror = (e) => { status.textContent = "Failed to load URL (CORS?)"; showSpinner(false); console.error(e); };
+    img.src = url;
+  });
+
+  // view change
+  viewModeSel.addEventListener('change', (e) => {
+    viewMode = e.target.value;
+    status.textContent = "View: " + viewMode;
+  });
+
+  // start/stop toggle
+  startStop.addEventListener('click', ()=>{
+    isRunning = !isRunning;
+    indicator.classList.toggle('on', isRunning);
+    startStop.textContent = isRunning ? "⏸ Pause" : "▶️ Start";
+    status.textContent = isRunning ? "Playing" : "Paused";
+    if(!isRunning && autoStopTimer){ clearTimeout(autoStopTimer); autoStopTimer = null; }
+  });
+
+  // reverse spin
+  reverseBtn.addEventListener('click', ()=>{
+    rotationVelocity = -rotationVelocity;
+    status.textContent = "Direction reversed";
+  });
+
+  // reset
+  resetBtn.addEventListener('click', ()=>{
+    rotation = 0; rotationVelocity = 0; status.textContent = "Reset";
+  });
+
+  // speed slider
+  speedSlider.addEventListener('input', (e)=>{
+    rotationSpeed = parseFloat(e.target.value);
+    speedValue.textContent = rotationSpeed.toFixed(3);
+  });
+
+  // light slider
+  lightSlider.addEventListener('input', (e)=>{
+    glowIntensity = parseFloat(e.target.value);
+    lightValue.textContent = glowIntensity.toFixed(2);
+  });
+
+  // slit sliders listeners (NEW)
+  slitsSlider.addEventListener('input', (e) => {
+    slitCount = parseInt(e.target.value, 10);
+    slitsValue.textContent = slitCount;
+  });
+  slitLenSlider.addEventListener('input', (e) => {
+    slitLengthDeg = parseInt(e.target.value, 10);
+    slitLenValue.textContent = slitLengthDeg + "°";
+  });
+
+  // toggle inset
+  toggleInset.addEventListener('click', ()=>{
+    showInset = !showInset;
+    insetDiv.style.display = showInset ? 'block' : 'none';
+  });
+
+  // dropdown change
+  discSelect.addEventListener('change', loadSelectedDisc);
+
+  // resize canvas for DPR and responsiveness
+  function resizeCanvas(){
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const size = Math.min(Math.max(400, rect.width), 900);
+    canvas.width = Math.floor(size * dpr);
+    canvas.height = canvas.width;
+    // inset
+    const irect = insetCanvas.getBoundingClientRect();
+    insetCanvas.width = Math.floor(irect.width * dpr);
+    insetCanvas.height = Math.floor(irect.height * dpr);
+  }
+  window.addEventListener('resize', resizeCanvas);
+
+  // draw glow
+  function drawGlow(opacity){
+    const el = glow;
+    const size = Math.min(canvas.width, canvas.height) + 80;
+    el.style.width = size + 'px';
+    el.style.height = size + 'px';
+    const cx = canvas.getBoundingClientRect().left + canvas.offsetWidth/2 - size/2;
+    const cy = canvas.getBoundingClientRect().top + canvas.offsetHeight/2 - size/2;
+    el.style.left = cx + 'px';
+    el.style.top = cy + 'px';
+    el.style.background = `radial-gradient(circle, rgba(110,231,183,${0.25*opacity}) 0%, rgba(110,231,183,${0.02*opacity}) 35%, rgba(0,0,0,0) 65%)`;
+    el.style.opacity = opacity>0.01 ? Math.min(1, opacity) : 0;
+  }
+
+  // draw photo mode (circular disc)
+  function drawPhoto(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    const cx = canvas.width/2, cy = canvas.height/2;
+    const r = canvas.width * 0.42;
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    if(backgroundFrame.complete && backgroundFrame.naturalWidth>0){
+      ctx.save();
+      ctx.globalAlpha = 0.06;
+      const s = (canvas.width*1.0)/backgroundFrame.naturalWidth;
+      const bw = backgroundFrame.naturalWidth * s, bh = backgroundFrame.naturalHeight * s;
+      ctx.drawImage(backgroundFrame, cx - bw/2, cy - bh/2, bw, bh);
+      ctx.restore();
+    }
+
+    ctx.beginPath(); ctx.arc(cx, cy + r*0.06, r*1.02, 0, Math.PI*2); ctx.fillStyle = "rgba(0,0,0,0.45)"; ctx.fill();
+
+    if(discImage && discImage.complete && discImage.naturalWidth>0){
+      ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.closePath(); ctx.clip();
+      ctx.translate(cx, cy); ctx.rotate(rotation);
+      const s = Math.max((r*2)/discImage.width, (r*2)/discImage.height);
+      const iw = discImage.width * s, ih = discImage.height * s;
+      
+      // APPLIQUER L'OFFSET ICI POUR LE MODE PHOTO
+      ctx.drawImage(discImage, offsetX, offsetY, iw, ih); 
+      
+      ctx.restore();
+    }
+
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.lineWidth = Math.max(6, canvas.width*0.008); ctx.strokeStyle = "rgba(255,255,255,0.06)"; ctx.stroke();
+
+    // holes ring (decorative)
+    const holes = 24;
+    const holeR = Math.max(4, canvas.width*0.006);
+    for(let i=0;i<holes;i++){
+      const a = i * (Math.PI*2/holes) + rotation;
+      const hx = cx + Math.cos(a)*(r*0.92), hy = cy + Math.sin(a)*(r*0.92);
+      ctx.beginPath(); ctx.arc(hx,hy,holeR,0,Math.PI*2); ctx.fillStyle="rgba(0,0,0,0.65)"; ctx.fill();
+      ctx.lineWidth = 1; ctx.strokeStyle = "rgba(255,255,255,0.04)"; ctx.stroke();
+    }
+
+    ctx.beginPath(); ctx.arc(cx,cy,Math.max(6,canvas.width*0.01),0,Math.PI*2); ctx.fillStyle="#222"; ctx.fill();
+    ctx.lineWidth=2; ctx.strokeStyle="rgba(255,255,255,0.06)"; ctx.stroke();
+
+    const g = ctx.createRadialGradient(cx,cy,r*0.2,cx,cy,r*1.1); g.addColorStop(0,"rgba(0,0,0,0)"); g.addColorStop(1,"rgba(0,0,0,0.45)");
+    ctx.fillStyle = g; ctx.fillRect(0,0,canvas.width,canvas.height);
+  }
+
+  // Simulation mode: dessine l'image avec une rotation compensée pour créer la persistance de vision.
+  function drawSimulation(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    const cx = canvas.width/2, cy = canvas.height/2;
+    ctx.fillStyle = "#070b10"; ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    if(discImage && discImage.complete && discImage.naturalWidth>0){
+        
+        const slits = slitCount || 12;
+        // Angle de rotation par segment (en radians)
+        const rotationPerSegment = (2 * Math.PI / slits);
+        
+        // Calculer l'index de l'image (frame) actuellement visible.
+        let frameIndex = Math.floor(rotation / rotationPerSegment);
+        
+        // Rotation COMPENSÉE
+        const compensatedRotation = rotation - (frameIndex * rotationPerSegment);
+        
+        // --- Rendu de l'image (légèrement tournante, mais synchronisée) ---
+        ctx.save(); 
+        ctx.translate(cx, cy); 
+        
+        // APPLIQUER LA ROTATION COMPENSÉE.
+        ctx.rotate(compensatedRotation);
+        
+        const s = Math.min((canvas.width*0.9)/discImage.width,(canvas.height*0.9)/discImage.height);
+        const iw = discImage.width*s, ih = discImage.height*s; 
+        
+        // APPLIQUER L'OFFSET ICI
+        ctx.drawImage(discImage, offsetX, offsetY, iw, ih); 
+        
+        ctx.restore();
+    }
+  }
+
+
+  // inset draw
+  function drawInset(){
+    insetCtx.clearRect(0,0,insetCanvas.width,insetCanvas.height);
+    if(!showInset) return;
+    insetCtx.save(); insetCtx.translate(insetCanvas.width/2,insetCanvas.height/2); insetCtx.rotate(rotation);
+    if(discImage && discImage.complete && discImage.naturalWidth>0){
+      const s = Math.max(insetCanvas.width/discImage.width, insetCanvas.height/discImage.height);
+      const iw = discImage.width*s, ih = discImage.height*s; 
+      
+      // APPLIQUER L'OFFSET ICI
+      insetCtx.drawImage(discImage, offsetX, offsetY, iw, ih);
+    }
+    insetCtx.restore();
+    insetCtx.beginPath(); insetCtx.arc(insetCanvas.width/2,insetCanvas.height/2,insetCanvas.width/2 - 2,0,Math.PI*2); insetCtx.lineWidth = 3; insetCtx.strokeStyle="rgba(255,255,255,0.06)"; insetCtx.stroke();
+  }
+
+  // main render loop
+  function render(){
+    const glowOp = isRunning ? (0.4 + 0.6*Math.abs(Math.sin(rotation*0.2))) * glowIntensity : 0.05 * glowIntensity;
+    drawGlow(glowOp);
+
+    if(viewMode === 'simulation') drawSimulation();
+    else if(viewMode === 'photo') drawPhoto();
+
+    drawInset();
+    requestAnimationFrame(render);
+  }
+
+  // physics: update rotation by velocity; apply friction when not driven
+  function physicsStep(){
+    if(isRunning && Math.abs(rotationVelocity) < Math.abs(rotationSpeed*1.2)){
+      const target = rotationSpeed * Math.sign(rotationVelocity || 1);
+      rotationVelocity += (target - rotationVelocity) * 0.03;
+    }
+    rotation += rotationVelocity;
+    rotationVelocity *= isDragging ? 0.995 : 0.995;
+    if(Math.abs(rotationVelocity) < 0.000001) rotationVelocity = 0;
+    requestAnimationFrame(physicsStep);
+  }
+
+  // pointer helpers
+  function pointerAngle(clientX, clientY){
+    const rect = canvas.getBoundingClientRect();
+    const cx = rect.left + rect.width/2;
+    const cy = rect.top + rect.height/2;
+    return Math.atan2(clientY - cy, clientX - cx);
+  }
+
+  function onPointerDown(e){
+    isDragging = true;
+    pointerVelSamples = [];
+    lastPointerAngle = pointerAngle(e.clientX, e.clientY);
+    lastPointerTime = performance.now();
+    try { canvas.setPointerCapture(e.pointerId); } catch(e){}
+  }
+  function onPointerMove(e){
+    if(!isDragging) return;
+    const now = performance.now();
+    const angle = pointerAngle(e.clientX, e.clientY);
+    let delta = angle - lastPointerAngle;
+    while(delta > Math.PI) delta -= 2*Math.PI;
+    while(delta < -Math.PI) delta += 2*Math.PI;
+    rotation += delta;
+    const dt = Math.max(1, now - lastPointerTime);
+    pointerVelSamples.push({v: delta / (dt/16.6667), t: now});
+    if(pointerVelSamples.length > 6) pointerVelSamples.shift();
+    lastPointerAngle = angle;
+    lastPointerTime = now;
+  }
+  function onPointerUp(e){
+    if(!isDragging) return;
+    isDragging = false;
+    if(pointerVelSamples.length){
+      let sum=0, weight=0;
+      for(let i=0;i<pointerVelSamples.length;i++){
+        const age = (performance.now() - pointerVelSamples[i].t)/1000;
+        const w = Math.max(0.1, 1 - age*2);
+        sum += pointerVelSamples[i].v * w;
+        weight += w;
+      }
+      let est = weight? sum/weight : 0;
+      rotationVelocity = est * (Math.max(0.5, rotationSpeed*25));
+    }
+    pointerVelSamples = [];
+  }
+
+  // events
+  canvas.addEventListener('pointerdown', onPointerDown);
+  canvas.addEventListener('pointermove', onPointerMove);
+  canvas.addEventListener('pointerup', onPointerUp);
+  canvas.addEventListener('pointercancel', onPointerUp);
+  canvas.addEventListener('pointerleave', onPointerUp);
+
+  // auto-start 2 minutes
+  function startAuto(duration=120000){
+    if(!isRunning){
+      isRunning = true; indicator.classList.add('on'); startStop.textContent="⏸ Pause"; status.textContent="Auto-play";
+      rotationVelocity = rotationSpeed * 50; // Démarrer avec une rotation plus rapide pour simuler le lancement
+    }
+    if(autoStopTimer) clearTimeout(autoStopTimer);
+    autoStopTimer = setTimeout(()=>{
+      isRunning = false; indicator.classList.remove('on'); startStop.textContent="▶️ Start"; status.textContent="Auto-play finished";
+      autoStopTimer = null;
+    }, duration);
+  }
+
+  // initial setup
+  populateDropdown();
+  resizeCanvas();
+  render();
+  physicsStep();
+  startAuto(120000);
+
+  // expose some console debugging
+  console.log("Ready. Images:", imageFiles.length, "Default:", discSelect.value);
+
+  document.addEventListener('visibilitychange', () => { if(document.visibilityState==='visible') resizeCanvas(); });
+};
