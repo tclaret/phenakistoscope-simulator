@@ -347,7 +347,7 @@ window.onload = function() {
     }
 
     // Apply slit mask
-    const slits = slitCount || 12;
+    const slits = slitCount || 40;
     const slitW = (slitLengthDeg || 10) * Math.PI/180;
     ctx.save(); 
     ctx.translate(cx,cy); 
