@@ -38,8 +38,7 @@ window.onload = function() {
   const indicator = document.getElementById('indicator');
   const speedSlider = document.getElementById('speed');
   const speedValue = document.getElementById('speedValue');
-  const lightSlider = document.getElementById('light');
-  const lightValue = document.getElementById('lightValue');
+  // Remove light control references
   const toggleInset = document.getElementById('toggleInset');
   const insetDiv = document.getElementById('inset');
   const spinner = document.getElementById('spinner');
@@ -76,7 +75,7 @@ window.onload = function() {
   let rotationSpeed = parseFloat(speedSlider.value); // base speed used for auto-run
   let showInset = false;
   let autoStopTimer = null;
-  let glowIntensity = parseFloat(lightSlider.value);
+  let glowIntensity = 0.6; // Fixed glow intensity
 
   // slit state
   let slitCount = parseInt(slitsSlider.value || 12);
@@ -183,13 +182,25 @@ window.onload = function() {
     status.textContent = "View: " + viewMode;
   });
 
-  // start/stop toggle
+  // start/stop toggle with improved control
   startStop.addEventListener('click', ()=>{
     isRunning = !isRunning;
     indicator.classList.toggle('on', isRunning);
     startStop.textContent = isRunning ? "⏸ Pause" : "▶️ Start";
     status.textContent = isRunning ? "Playing" : "Paused";
-    if(!isRunning && autoStopTimer){ clearTimeout(autoStopTimer); autoStopTimer = null; }
+    
+    if(isRunning) {
+      // Start with initial velocity if stopped
+      if (Math.abs(rotationVelocity) < 0.001) {
+        rotationVelocity = rotationSpeed;
+      }
+    } else {
+      // Clear auto-stop timer when manually stopping
+      if(autoStopTimer) {
+        clearTimeout(autoStopTimer);
+        autoStopTimer = null;
+      }
+    }
   });
 
   // reverse spin
@@ -209,11 +220,7 @@ window.onload = function() {
     speedValue.textContent = rotationSpeed.toFixed(3);
   });
 
-  // light slider
-  lightSlider.addEventListener('input', (e)=>{
-    glowIntensity = parseFloat(e.target.value);
-    lightValue.textContent = glowIntensity.toFixed(2);
-  });
+  // Remove light slider event listener
 
   // slit sliders listeners (NEW)
   slitsSlider.addEventListener('input', (e) => {
@@ -377,13 +384,16 @@ window.onload = function() {
 
   // physics: update rotation by velocity; apply friction when not driven
   function physicsStep(){
-    if(isRunning && Math.abs(rotationVelocity) < Math.abs(rotationSpeed*1.2)){
-      const target = rotationSpeed * Math.sign(rotationVelocity || 1);
-      rotationVelocity += (target - rotationVelocity) * 0.03;
+    if(isRunning) {
+      // When running, maintain constant speed
+      rotationVelocity = rotationSpeed * (rotationVelocity < 0 ? -1 : 1);
+    } else if (!isDragging) {
+      // Apply friction when not running and not being dragged
+      rotationVelocity *= 0.95;
+      if(Math.abs(rotationVelocity) < 0.000001) rotationVelocity = 0;
     }
+    
     rotation += rotationVelocity;
-    rotationVelocity *= isDragging ? 0.995 : 0.995;
-    if(Math.abs(rotationVelocity) < 0.000001) rotationVelocity = 0;
     requestAnimationFrame(physicsStep);
   }
 
@@ -502,12 +512,18 @@ window.onload = function() {
   // auto-start 2 minutes
   function startAuto(duration=120000){
     if(!isRunning){
-      isRunning = true; indicator.classList.add('on'); startStop.textContent="⏸ Pause"; status.textContent="Auto-play";
-      rotationVelocity = rotationSpeed * 50; // Démarrer avec une rotation plus rapide pour simuler le lancement
+      isRunning = true;
+      indicator.classList.add('on');
+      startStop.textContent="⏸ Pause";
+      status.textContent="Auto-play";
+      rotationVelocity = rotationSpeed; // Start at normal speed
     }
     if(autoStopTimer) clearTimeout(autoStopTimer);
     autoStopTimer = setTimeout(()=>{
-      isRunning = false; indicator.classList.remove('on'); startStop.textContent="▶️ Start"; status.textContent="Auto-play finished";
+      isRunning = false;
+      indicator.classList.remove('on');
+      startStop.textContent="▶️ Start";
+      status.textContent="Auto-play finished";
       autoStopTimer = null;
     }, duration);
   }
