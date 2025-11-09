@@ -38,14 +38,15 @@ window.onload = function() {
   const indicator = document.getElementById('indicator');
   const speedSlider = document.getElementById('speed');
   const speedValue = document.getElementById('speedValue');
-  // Lignes pour 'lightSlider' et 'lightValue' retirées
+  const lightSlider = document.getElementById('light');
+  const lightValue = document.getElementById('lightValue');
   const toggleInset = document.getElementById('toggleInset');
   const insetDiv = document.getElementById('inset');
   const spinner = document.getElementById('spinner');
   const status = document.getElementById('status');
-  // Ligne pour 'glow' retirée
+  const glow = document.getElementById('glow');
 
-  // NEW slit controls
+  // slit controls
   const slitsSlider = document.getElementById('slits');
   const slitsValue = document.getElementById('slitsValue');
   const slitLenSlider = document.getElementById('slitLen');
@@ -61,14 +62,18 @@ window.onload = function() {
   let backgroundFrame = new Image();
   backgroundFrame.src = "images/frame_2.png";
 
-  let viewMode = 'simulation';
+  let viewMode = 'simulation'; // DÉFAUT MAINTENANT SUR 'simulation'
   let isRunning = false;
   let rotation = 0;
   let rotationVelocity = 0;   // actual angular velocity (radians/frame)
   let rotationSpeed = parseFloat(speedSlider.value); // base speed used for auto-run
-  let showInset = false;
+  let showInset = true; // DÉFAUT À VRAI pour montrer la loupe
   let autoStopTimer = null;
-  let glowIntensity = 0; // Initialisé à 0 car la lumière est supprimée.
+  let glowIntensity = parseFloat(lightSlider.value);
+
+  // NOUVEAU: Offset pour le centrage de l'image
+  let offsetX = 0;
+  let offsetY = 0;
 
   // slit state
   let slitCount = parseInt(slitsSlider.value || 12);
@@ -93,6 +98,11 @@ window.onload = function() {
     // default first
     discSelect.selectedIndex = 0;
     loadSelectedDisc();
+    // Sélectionner 'simulation' par défaut dans le HTML
+    viewModeSel.value = 'simulation';
+    // Afficher l'incrustation par défaut
+    insetDiv.style.display = showInset ? 'block' : 'none';
+    toggleInset.textContent = showInset ? "Hide Inset" : "Show Inset";
   }
 
   function showSpinner(on){ spinner.classList.toggle('visible', !!on); }
@@ -103,6 +113,26 @@ window.onload = function() {
     thumbnail.src = src;
   }
 
+  // Centrage automatique (méthode simple)
+  function centerDisc() {
+    if (!discImage || !discImage.width) {
+      resetDiscOffset();
+      return;
+    }
+    // L'offset est calculé pour aligner le centre de l'image (width/2, height/2) avec (0,0) après translation du canvas
+    offsetX = -(discImage.width * 0.5);
+    offsetY = -(discImage.height * 0.5);
+
+    status.textContent = `Centrage ajusté (dx: ${offsetX.toFixed(0)}, dy: ${offsetY.toFixed(0)})`;
+  }
+
+  function resetDiscOffset() {
+    offsetX = 0;
+    offsetY = 0;
+    status.textContent = "Centrage réinitialisé (offset 0)";
+  }
+
+
   // load from images/ folder (photo mode default)
   function loadSelectedDisc(){
     const f = discSelect.value;
@@ -112,6 +142,7 @@ window.onload = function() {
     const img = new Image();
     img.onload = () => {
       discImage = img;
+      centerDisc(); // Centrer après le chargement
       updateThumbnail(p);
       status.textContent = "Loaded " + f;
       showSpinner(false);
@@ -136,6 +167,7 @@ window.onload = function() {
       const img = new Image();
       img.onload = () => {
         discImage = img;
+        centerDisc(); // Centrer après le chargement
         updateThumbnail(ev.target.result);
         status.textContent = "Loaded local " + f.name;
         showSpinner(false);
@@ -157,6 +189,7 @@ window.onload = function() {
     img.crossOrigin = "anonymous";
     img.onload = () => {
       discImage = img;
+      centerDisc(); // Centrer après le chargement
       updateThumbnail(url);
       status.textContent = "Loaded from URL";
       showSpinner(false);
@@ -197,7 +230,11 @@ window.onload = function() {
     speedValue.textContent = rotationSpeed.toFixed(3);
   });
 
-  // light slider (bloc supprimé)
+  // light slider
+  lightSlider.addEventListener('input', (e)=>{
+    glowIntensity = parseFloat(e.target.value);
+    lightValue.textContent = glowIntensity.toFixed(2);
+  });
 
   // slit sliders listeners (NEW)
   slitsSlider.addEventListener('input', (e) => {
@@ -229,11 +266,24 @@ window.onload = function() {
     // inset
     const irect = insetCanvas.getBoundingClientRect();
     insetCanvas.width = Math.floor(irect.width * dpr);
-    insetCanvas.height = Math.floor(irect.height * dpr);
+    insetCanvas.height = insetCanvas.width; // Force carré
   }
   window.addEventListener('resize', resizeCanvas);
 
-  // draw glow (fonction supprimée)
+  // draw glow
+  function drawGlow(opacity){
+    const el = glow;
+    const size = Math.min(canvas.width, canvas.height) + 80;
+    el.style.width = size + 'px';
+    el.style.height = size + 'px';
+    const rect = canvas.getBoundingClientRect();
+    const cx = rect.left + rect.width/2 - size/2;
+    const cy = rect.top + rect.height/2 - size/2;
+    el.style.left = cx + 'px';
+    el.style.top = cy + 'px';
+    el.style.background = `radial-gradient(circle, rgba(110,231,183,${0.25*opacity}) 0%, rgba(110,231,183,${0.02*opacity}) 35%, rgba(0,0,0,0) 65%)`;
+    el.style.opacity = opacity>0.01 ? Math.min(1, opacity) : 0;
+  }
 
   // draw photo mode (circular disc)
   function drawPhoto(){
@@ -259,7 +309,11 @@ window.onload = function() {
       ctx.translate(cx, cy); ctx.rotate(rotation);
       const s = Math.max((r*2)/discImage.width, (r*2)/discImage.height);
       const iw = discImage.width * s, ih = discImage.height * s;
-      ctx.drawImage(discImage, -iw/2, -ih/2, iw, ih); ctx.restore();
+
+      // APPLIQUER L'OFFSET
+      ctx.drawImage(discImage, offsetX, offsetY, iw, ih);
+
+      ctx.restore();
     }
 
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.lineWidth = Math.max(6, canvas.width*0.008); ctx.strokeStyle = "rgba(255,255,255,0.06)"; ctx.stroke();
@@ -281,47 +335,113 @@ window.onload = function() {
     ctx.fillStyle = g; ctx.fillRect(0,0,canvas.width,canvas.height);
   }
 
-  // simulation mode: flat spinning with slit mask using slitCount & slitLengthDeg
+  // Simulation mode: dessine l'image avec une rotation compensée pour créer la persistance de vision.
   function drawSimulation(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
     const cx = canvas.width/2, cy = canvas.height/2;
     ctx.fillStyle = "#070b10"; ctx.fillRect(0,0,canvas.width,canvas.height);
 
     if(discImage && discImage.complete && discImage.naturalWidth>0){
-      ctx.save(); ctx.translate(cx,cy); ctx.rotate(rotation);
-      const s = Math.min((canvas.width*0.9)/discImage.width,(canvas.height*0.9)/discImage.height);
-      const iw = discImage.width*s, ih = discImage.height*s; ctx.drawImage(discImage,-iw/2,-ih/2,iw,ih); ctx.restore();
-    }
 
-    // dynamic slits from sliders
-    const slits = slitCount || 12;
-    const slitW = (slitLengthDeg || 10) * Math.PI/180;
-    ctx.save(); ctx.translate(cx,cy); ctx.rotate(-rotation);
-    ctx.globalCompositeOperation = "destination-in"; ctx.beginPath();
-    for(let i=0;i<slits;i++){
-      const a = i*(2*Math.PI/slits)-slitW/2;
-      ctx.moveTo(0,0);
-      ctx.arc(0,0,Math.max(canvas.width,canvas.height),a,a+slitW);
+        const slits = slitCount || 12;
+        // Angle de rotation par segment (en radians)
+        const rotationPerSegment = (2 * Math.PI / slits);
+
+        // Calculer l'index de l'image (frame) actuellement visible.
+        let frameIndex = Math.floor(rotation / rotationPerSegment);
+
+        // Rotation COMPENSÉE
+        const compensatedRotation = rotation - (frameIndex * rotationPerSegment);
+
+        // --- Rendu de l'image (légèrement tournante, mais synchronisée) ---
+        ctx.save();
+        ctx.translate(cx, cy);
+
+        // APPLIQUER LA ROTATION COMPENSÉE.
+        ctx.rotate(compensatedRotation);
+
+        const s = Math.min((canvas.width*0.9)/discImage.width,(canvas.height*0.9)/discImage.height);
+        const iw = discImage.width*s, ih = discImage.height*s;
+
+        // APPLIQUER L'OFFSET
+        ctx.drawImage(discImage, offsetX * s, offsetY * s, iw, ih);
+
+        ctx.restore();
     }
-    ctx.fillStyle="#fff"; ctx.fill(); ctx.restore();
   }
 
-  // inset draw
+
+  // --- FONCTION INSET MODIFIÉE : ZOOM SUR LE SEGMENT ---
   function drawInset(){
     insetCtx.clearRect(0,0,insetCanvas.width,insetCanvas.height);
-    if(!showInset) return;
-    insetCtx.save(); insetCtx.translate(insetCanvas.width/2,insetCanvas.height/2); insetCtx.rotate(rotation);
-    if(discImage && discImage.complete && discImage.naturalWidth>0){
-      const s = Math.max(insetCanvas.width/discImage.width, insetCanvas.height/discImage.height);
-      const iw = discImage.width*s, ih = discImage.height*s; insetCtx.drawImage(discImage,-iw/2,-ih/2,iw,ih);
-    }
+    if(!showInset || !discImage || !discImage.complete) return;
+
+    const slits = slitCount || 12;
+    const rotationPerSegment = (2 * Math.PI / slits);
+    const frameIndex = Math.floor(rotation / rotationPerSegment);
+
+    // Rotation COMPENSÉE (petit mouvement à l'intérieur de la frame)
+    const compensatedRotation = rotation - (frameIndex * rotationPerSegment);
+
+    const icx = insetCanvas.width/2;
+    const icy = insetCanvas.height/2;
+
+    // --- Rendu du segment zoomé ---
+    insetCtx.save();
+
+    // 1. Déplacer l'origine au centre du canvas d'incrustation
+    insetCtx.translate(icx, icy);
+
+    // 2. Facteur de Zoom
+    const zoomFactor = 4;
+    insetCtx.scale(zoomFactor, zoomFactor);
+
+    // 3. Rotation pour ALIGNER le segment à l'horizontale (3 o'clock / 0 radians)
+
+    // Rotation pour amener le début du segment 'frameIndex' à 0 radians.
+    const R_sync = -(frameIndex * rotationPerSegment);
+
+    // Rotation finale (Alignement sur le segment + Mouvement compensé)
+    const R_final = R_sync + compensatedRotation;
+    insetCtx.rotate(R_final);
+
+    // Facteur d'échelle du disque dans la vue principale (pour maintenir la proportion)
+    const s_draw = Math.min((canvas.width*0.9)/discImage.width, (canvas.height*0.9)/discImage.height);
+
+    // --- 4. NOUVEAU: Translation pour centrer le segment ---
+    // Cette valeur (en pixels dans le système de coordonnées non-zoomé) ramène le dessin du périmètre au centre de l'incrustation.
+    // L'estimation est basée sur le fait que le dessin se trouve près du bord du disque.
+    const R_disc_estime = discImage.width / 2;
+    const decalageX_segment = -(R_disc_estime * 0.45); // Ajustement empirique (0.45 du rayon)
+
+    // Appliquer le décalage, multiplié par le facteur d'échelle du dessin principal.
+    insetCtx.translate(decalageX_segment * s_draw, 0);
+
+    // 5. Dessiner l'image entière (avec l'échelle principale)
+    const iw_scaled = discImage.width * s_draw;
+    const ih_scaled = discImage.height * s_draw;
+
+    // L'offset et le dessin sont appliqués à partir du centre de rotation (0,0) translaté.
+    insetCtx.drawImage(
+      discImage,
+      offsetX * s_draw,
+      offsetY * s_draw,
+      iw_scaled,
+      ih_scaled
+    );
+
     insetCtx.restore();
-    insetCtx.beginPath(); insetCtx.arc(insetCanvas.width/2,insetCanvas.height/2,insetCanvas.width/2 - 2,0,Math.PI*2); insetCtx.lineWidth = 3; insetCtx.strokeStyle="rgba(255,255,255,0.06)"; insetCtx.stroke();
+
+    // Ajout d'une bordure décorative
+    insetCtx.beginPath(); insetCtx.arc(icx, icy, icx - 2, 0, Math.PI*2); insetCtx.lineWidth = 3; insetCtx.strokeStyle="rgba(255,255,255,0.15)"; insetCtx.stroke();
   }
+  // --- FIN DE LA FONCTION INSET MODIFIÉE ---
+
 
   // main render loop
   function render(){
-    // Lignes de glow supprimées
+    const glowOp = isRunning ? (0.4 + 0.6*Math.abs(Math.sin(rotation*0.2))) * glowIntensity : 0.05 * glowIntensity;
+    drawGlow(glowOp);
 
     if(viewMode === 'simulation') drawSimulation();
     else if(viewMode === 'photo') drawPhoto();
@@ -337,8 +457,7 @@ window.onload = function() {
       rotationVelocity += (target - rotationVelocity) * 0.03;
     }
     rotation += rotationVelocity;
-    // Amélioration de la friction pour une meilleure sensation de spin au doigt
-    rotationVelocity *= isDragging ? 0.998 : 0.99;
+    rotationVelocity *= isDragging ? 0.995 : 0.995;
     if(Math.abs(rotationVelocity) < 0.000001) rotationVelocity = 0;
     requestAnimationFrame(physicsStep);
   }
@@ -384,14 +503,12 @@ window.onload = function() {
         weight += w;
       }
       let est = weight? sum/weight : 0;
-      // Multiplicateur pour l'impulsion initiale
       rotationVelocity = est * (Math.max(0.5, rotationSpeed*25));
     }
     pointerVelSamples = [];
   }
 
   // events
-  // Les événements 'pointer' gèrent nativement le toucher et la souris, y compris sur Android.
   canvas.addEventListener('pointerdown', onPointerDown);
   canvas.addEventListener('pointermove', onPointerMove);
   canvas.addEventListener('pointerup', onPointerUp);
@@ -402,7 +519,7 @@ window.onload = function() {
   function startAuto(duration=120000){
     if(!isRunning){
       isRunning = true; indicator.classList.add('on'); startStop.textContent="⏸ Pause"; status.textContent="Auto-play";
-      rotationVelocity = rotationSpeed;
+      rotationVelocity = rotationSpeed * 50; // Démarrer avec une rotation plus rapide pour simuler le lancement
     }
     if(autoStopTimer) clearTimeout(autoStopTimer);
     autoStopTimer = setTimeout(()=>{
