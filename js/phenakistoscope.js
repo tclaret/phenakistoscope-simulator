@@ -498,60 +498,45 @@ window.onload = function() {
   canvas.addEventListener('touchstart', (e) => {
     if (e.touches.length === 2) {
       e.preventDefault();
-      isPanning = true;
       const touch1 = e.touches[0];
       const touch2 = e.touches[1];
-      lastPanX = (touch1.clientX + touch2.clientX) / 2;
-      lastPanY = (touch1.clientY + touch2.clientY) / 2;
       lastPinchDist = Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY);
-      status.textContent = "Pan/Zoom mode: Two fingers to adjust image position and zoom";
-    }
-    // Double-tap detection for center mode
-    if (e.touches.length === 1) {
-      const now = Date.now();
-      if (now - lastTapTime < 350) {
-        activateCenterMode();
-      }
-      lastTapTime = now;
+      status.textContent = "Zoom: Use two fingers to zoom the image";
     }
   });
 
   canvas.addEventListener('touchmove', (e) => {
-    if (isPanning && e.touches.length === 2) {
+    if (e.touches.length === 2) {
       e.preventDefault();
       const touch1 = e.touches[0];
       const touch2 = e.touches[1];
-      const currentX = (touch1.clientX + touch2.clientX) / 2;
-      const currentY = (touch1.clientY + touch2.clientY) / 2;
-
-      const deltaX = currentX - lastPanX;
-      const deltaY = currentY - lastPanY;
-
-      // Scale the movement based on canvas size
-      const scale = canvas.width / canvas.getBoundingClientRect().width;
-      imageOffsetX += deltaX * scale;
-      imageOffsetY += deltaY * scale;
 
       // Pinch zoom
       const pinchDist = Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY);
       if (lastPinchDist) {
         let zoomChange = pinchDist / lastPinchDist;
+        const oldZoom = imageZoom;
         imageZoom *= zoomChange;
         imageZoom = Math.max(0.2, Math.min(5, imageZoom));
+        
+        // Adjust offset to keep the pinch center point stable
+        if (oldZoom !== imageZoom) {
+          const rect = canvas.getBoundingClientRect();
+          const scale = canvas.width / rect.width;
+          const centerX = (touch1.clientX + touch2.clientX) / 2;
+          const centerY = (touch1.clientY + touch2.clientY) / 2;
+          const canvasCenterX = rect.left + rect.width / 2;
+          const canvasCenterY = rect.top + rect.height / 2;
+          
+          imageOffsetX *= imageZoom / oldZoom;
+          imageOffsetY *= imageZoom / oldZoom;
+        }
       }
       lastPinchDist = pinchDist;
-
-      // Limit the pan range to prevent the image from moving too far
-      const maxOffset = canvas.width * 0.2;
-      imageOffsetX = Math.max(-maxOffset, Math.min(maxOffset, imageOffsetX));
-      imageOffsetY = Math.max(-maxOffset, Math.min(maxOffset, imageOffsetY));
-
-      lastPanX = currentX;
-      lastPanY = currentY;
       
-      status.textContent = `Image position: ${Math.round(imageOffsetX)}, ${Math.round(imageOffsetY)}, Zoom: ${imageZoom.toFixed(2)}`;
+      status.textContent = `Zoom: ${imageZoom.toFixed(2)}`;
     }
-    // Center mode: drag to center
+    // Center mode: drag to center only when centerMode is active
     if (centerMode && e.touches.length === 1) {
       e.preventDefault();
       const touch = e.touches[0];
@@ -561,31 +546,21 @@ window.onload = function() {
       const scale = canvas.width / rect.width;
       imageOffsetX = (touch.clientX - cx) * scale;
       imageOffsetY = (touch.clientY - cy) * scale;
-      status.textContent = `Center mode: ${Math.round(imageOffsetX)}, ${Math.round(imageOffsetY)}`;
-      if (centerPopup) centerPopup.textContent = 'Drag to center the image. Tap again to exit.';
+      status.textContent = `Centering: Move image to align with center point`;
+      if (centerPopup) centerPopup.textContent = 'Drag to center the image. Click "Done Centering" when finished.';
     }
   });
 
   canvas.addEventListener('touchend', (e) => {
     if (e.touches.length < 2) {
-      isPanning = false;
       lastPinchDist = 0;
-      status.textContent = "Pan/Zoom ended - Release both fingers to finish adjusting";
+      status.textContent = centerMode ? "Center Mode: Drag to align image" : "Normal Mode";
     }
-    if (centerMode && e.touches.length === 0) {
-      // Exit center mode on tap
-      deactivateCenterMode();
-    }
-  });
-
-  // Double-tap to activate center mode (for mouse)
-  canvas.addEventListener('dblclick', (e) => {
-    activateCenterMode();
   });
 
   // Mouse wheel zoom
   canvas.addEventListener('wheel', (e) => {
-    if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || viewMode === 'photo') {
+    if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
       let delta = e.deltaY < 0 ? 1.1 : 0.9;
       imageZoom *= delta;
