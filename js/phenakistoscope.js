@@ -593,12 +593,12 @@ window.onload = function() {
   function showCenterPopup() {
     if (centerPopup) return;
     centerPopup = document.createElement('div');
-  centerPopup.textContent = 'Move image mode: Drag to move the image. Click "Done Moving" when finished.';
+    centerPopup.textContent = 'Move image mode: Drag to move the image. Click "Done Moving" when finished.';
     centerPopup.style.position = 'fixed';
-    centerPopup.style.left = '50%';
-    
-    centerPopup.style.top = '20%';
-    centerPopup.style.transform = 'translate(-50%,0)';
+    // Place popup at the top-right so it doesn't overlap the controls on the left
+    centerPopup.style.right = '20px';
+    centerPopup.style.top = '20px';
+    centerPopup.style.transform = '';
     centerPopup.style.background = 'rgba(30,40,60,0.95)';
     centerPopup.style.color = '#fff';
     centerPopup.style.padding = '16px 24px';
