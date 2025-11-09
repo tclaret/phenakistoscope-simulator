@@ -60,8 +60,12 @@ window.onload = function() {
   let discImage = new Image();
   let backgroundFrame = new Image();
 
-  // image zoom
+  // image transform state
   let imageZoom = 1;
+  let panX = 0;
+  let panY = 0;
+  let lastPanX = 0;
+  let lastPanY = 0;
 
   let viewMode = 'simulation';
   let isRunning = false;
@@ -261,7 +265,7 @@ window.onload = function() {
       ctx.translate(cx, cy); ctx.rotate(rotation);
       const s = Math.max((r*2)/discImage.width, (r*2)/discImage.height) * imageZoom;
       const iw = discImage.width * s, ih = discImage.height * s;
-      ctx.drawImage(discImage, -iw/2, -ih/2, iw, ih); ctx.restore();
+      ctx.drawImage(discImage, -iw/2 + panX * s, -ih/2 + panY * s, iw, ih); ctx.restore();
     }
 
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.lineWidth = Math.max(6, canvas.width*0.008); ctx.strokeStyle = "rgba(255,255,255,0.06)"; ctx.stroke();
@@ -292,7 +296,7 @@ window.onload = function() {
     if(discImage && discImage.complete && discImage.naturalWidth>0){
       ctx.save(); ctx.translate(cx,cy); ctx.rotate(rotation);
       const s = Math.min((canvas.width*0.9)/discImage.width,(canvas.height*0.9)/discImage.height) * imageZoom;
-      const iw = discImage.width*s, ih = discImage.height*s; ctx.drawImage(discImage,-iw/2,-ih/2,iw,ih); ctx.restore();
+      const iw = discImage.width*s, ih = discImage.height*s; ctx.drawImage(discImage,-iw/2 + panX * s,-ih/2 + panY * s,iw,ih); ctx.restore();
     }
 
     // dynamic slits from sliders
@@ -424,28 +428,120 @@ window.onload = function() {
     }
   }, { passive: false });
 
-  // simple touch pinch zoom handlers
+  // Enhanced touch gesture handlers
+  let lastTouchCenter = null;
+  let lastTouchAngle = null;
+  let initialPanOffset = null;
+  
+  function getTouchCenter(t0, t1) {
+    return {
+      x: (t0.clientX + t1.clientX) / 2,
+      y: (t0.clientY + t1.clientY) / 2
+    };
+  }
+
+  function getTouchAngle(t0, t1) {
+    return Math.atan2(t1.clientY - t0.clientY, t1.clientX - t0.clientX);
+  }
+
   canvas.addEventListener('touchstart', (e) => {
-    if (e.touches && e.touches.length === 2) {
-      const t0 = e.touches[0], t1 = e.touches[1];
-      lastPinchDist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
-    }
-  }, { passive: true });
-  canvas.addEventListener('touchmove', (e) => {
-    if (e.touches && e.touches.length === 2) {
+    if (e.touches.length === 1) {
+      // Single touch for panning when zoomed
+      if (imageZoom > 1) {
+        const touch = e.touches[0];
+        lastPanX = touch.clientX;
+        lastPanY = touch.clientY;
+        initialPanOffset = { x: panX, y: panY };
+      }
+    } else if (e.touches.length === 2) {
       e.preventDefault();
       const t0 = e.touches[0], t1 = e.touches[1];
-      const pinchDist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
-      if (lastPinchDist) {
-        const change = pinchDist / lastPinchDist;
-        imageZoom = Math.max(0.2, Math.min(5, imageZoom * change));
-        if (zoomSlider) zoomSlider.value = imageZoom;
-        if (zoomValue) zoomValue.textContent = imageZoom.toFixed(2) + '×';
-        status.textContent = `Zoom: ${imageZoom.toFixed(2)}`;
-      }
-      lastPinchDist = pinchDist;
+      
+      // Initialize pinch-zoom
+      lastPinchDist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+      lastTouchCenter = getTouchCenter(t0, t1);
+      lastTouchAngle = getTouchAngle(t0, t1);
+      
+      // Remember initial pan offset for relative adjustments
+      initialPanOffset = { x: panX, y: panY };
     }
   }, { passive: false });
+
+  canvas.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 1 && imageZoom > 1) {
+      // Pan with single touch when zoomed
+      e.preventDefault();
+      const touch = e.touches[0];
+      const dx = touch.clientX - lastPanX;
+      const dy = touch.clientY - lastPanY;
+      
+      // Scale pan by zoom level for consistent feel
+      panX = initialPanOffset.x + dx / imageZoom;
+      panY = initialPanOffset.y + dy / imageZoom;
+      
+      // Limit pan range based on zoom level
+      const maxPan = (imageZoom - 1) * canvas.width / 4;
+      panX = Math.max(-maxPan, Math.min(maxPan, panX));
+      panY = Math.max(-maxPan, Math.min(maxPan, panY));
+    } else if (e.touches.length === 2) {
+      e.preventDefault();
+      const t0 = e.touches[0], t1 = e.touches[1];
+      const center = getTouchCenter(t0, t1);
+      const pinchDist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+      const touchAngle = getTouchAngle(t0, t1);
+      
+      // Handle pinch-zoom with proper center point
+      if (lastPinchDist && lastTouchCenter) {
+        const zoomChange = pinchDist / lastPinchDist;
+        const prevZoom = imageZoom;
+        imageZoom = Math.max(0.2, Math.min(5, imageZoom * zoomChange));
+        
+        // Adjust pan to maintain center point
+        if (prevZoom !== imageZoom) {
+          const rect = canvas.getBoundingClientRect();
+          const cx = (center.x - rect.left) / rect.width - 0.5;
+          const cy = (center.y - rect.top) / rect.height - 0.5;
+          panX += cx * (1/prevZoom - 1/imageZoom) * canvas.width;
+          panY += cy * (1/prevZoom - 1/imageZoom) * canvas.height;
+        }
+        
+        // Update zoom UI
+        if (zoomSlider) zoomSlider.value = imageZoom;
+        if (zoomValue) zoomValue.textContent = imageZoom.toFixed(2) + '×';
+      }
+      
+      // Handle rotation gesture for speed control
+      if (lastTouchAngle !== null) {
+        const angleDelta = touchAngle - lastTouchAngle;
+        const speedDelta = angleDelta * 0.02; // Scale factor for smooth control
+        rotationSpeed = Math.max(0.001, Math.min(0.12, rotationSpeed + speedDelta));
+        speedSlider.value = rotationSpeed;
+        speedValue.textContent = rotationSpeed.toFixed(3);
+      }
+      
+      lastPinchDist = pinchDist;
+      lastTouchCenter = center;
+      lastTouchAngle = touchAngle;
+    }
+  }, { passive: false });
+
+  canvas.addEventListener('touchend', (e) => {
+    if (e.touches.length === 0) {
+      lastPinchDist = null;
+      lastTouchCenter = null;
+      lastTouchAngle = null;
+      initialPanOffset = null;
+    } else if (e.touches.length === 1) {
+      // Reset two-finger gesture state but keep panning state
+      lastPinchDist = null;
+      lastTouchCenter = null;
+      lastTouchAngle = null;
+      const touch = e.touches[0];
+      lastPanX = touch.clientX;
+      lastPanY = touch.clientY;
+      initialPanOffset = { x: panX, y: panY };
+    }
+  }, { passive: true });
 
   // auto-start 2 minutes
   function startAuto(duration=120000){
