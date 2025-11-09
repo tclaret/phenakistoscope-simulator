@@ -81,7 +81,7 @@ window.onload = function() {
   let glowIntensity = 0.6; // Fixed glow intensity
 
   // slit state
-  let slitCount = parseInt(slitsSlider.value || 12);
+  let slitCount = parseInt(slitsSlider.value || 40);
   let slitLengthDeg = parseInt(slitLenSlider.value || 10);
 
   // drag spin variables
@@ -282,7 +282,7 @@ window.onload = function() {
   }
 
   // draw photo mode (circular disc)
-  function drawPhoto(){
+  function drawPhoto(centerCross){
     ctx.clearRect(0,0,canvas.width,canvas.height);
     const cx = canvas.width/2, cy = canvas.height/2;
     const r = canvas.width * 0.42;
@@ -302,11 +302,24 @@ window.onload = function() {
 
     if(discImage && discImage.complete && discImage.naturalWidth>0){
       ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.closePath(); ctx.clip();
-      ctx.translate(cx, cy); ctx.rotate(rotation);
+      ctx.translate(cx, cy);
+      // If in center mode, don't rotate
+      if (!centerCross) ctx.rotate(rotation);
       const s = Math.max((r*2)/discImage.width, (r*2)/discImage.height);
       const iw = discImage.width * s, ih = discImage.height * s;
       ctx.drawImage(discImage, -iw/2 + imageOffsetX, -ih/2 + imageOffsetY, iw, ih);
-      
+      ctx.restore();
+    }
+
+    // Draw cross at center in center mode
+    if (centerCross) {
+      ctx.save();
+      ctx.strokeStyle = "#ff3";
+      ctx.lineWidth = Math.max(2, canvas.width*0.008);
+      ctx.beginPath();
+      ctx.moveTo(cx-20, cy); ctx.lineTo(cx+20, cy);
+      ctx.moveTo(cx, cy-20); ctx.lineTo(cx, cy+20);
+      ctx.stroke();
       ctx.restore();
     }
 
@@ -334,7 +347,7 @@ window.onload = function() {
     ctx.clearRect(0,0,canvas.width,canvas.height);
     const cx = canvas.width/2, cy = canvas.height/2;
     ctx.fillStyle = "#070b10"; 
-    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillRect(0,0,canvas.width,anvas.height);
 
     if(discImage && discImage.complete && discImage.naturalWidth>0){
       ctx.save(); 
@@ -386,9 +399,14 @@ window.onload = function() {
     const glowOp = isRunning ? (0.4 + 0.6*Math.abs(Math.sin(rotation*0.2))) * glowIntensity : 0.05 * glowIntensity;
     drawGlow(glowOp);
 
-    if(viewMode === 'photo') drawPhoto();
-    else if(viewMode === 'simulation') drawSimulation();
-    else drawPhoto(); // fallback to photo mode if unknown view mode
+    if(centerMode) {
+      // Pause rotation in center mode
+      drawPhoto(true);
+    } else {
+      if(viewMode === 'photo') drawPhoto();
+      else if(viewMode === 'simulation') drawSimulation();
+      else drawPhoto(); // fallback to photo mode if unknown view mode
+    }
 
     drawInset();
     requestAnimationFrame(render);
