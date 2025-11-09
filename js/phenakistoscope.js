@@ -72,7 +72,7 @@ window.onload = function() {
   let rotation = 0;
   let rotationVelocity = 0;   // actual angular velocity (radians/frame)
   let rotationSpeed = parseFloat(speedSlider.value); // base speed used for auto-run
-  let showInset = false;
+  let showInset = false; // Default to hidden
   let autoStopTimer = null;
   let glowIntensity = 0; // Initialisé à 0 car la lumière est supprimée.
 
