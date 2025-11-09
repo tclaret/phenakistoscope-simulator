@@ -119,9 +119,13 @@ window.onload = function() {
   function loadSelectedDisc(){
     const f = discSelect.value;
     if(!f) return;
-    const p = pathFor(f);
+    let p = pathFor(f);
+    // Always use forward slashes
+    p = p.replace(/\\/g, '/');
     showSpinner(true);
     const img = new Image();
+    // Set crossOrigin for local images (empty string)
+    img.crossOrigin = "";
     img.onload = () => {
       discImage = img;
       imageOffsetX = 0;
@@ -132,8 +136,13 @@ window.onload = function() {
       console.log("Loaded", p);
     };
     img.onerror = (e) => {
-      status.textContent = "Error loading " + f;
+      status.textContent = "Error loading " + f + ". Try another image or check file format.";
       showSpinner(false);
+      // fallback: try lowercased filename
+      if (f !== f.toLowerCase()) {
+        const lower = pathFor(f.toLowerCase());
+        img.src = lower;
+      }
       console.error("Error loading image", p, e);
     };
     img.src = p;
