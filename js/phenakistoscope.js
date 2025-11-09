@@ -576,24 +576,24 @@ window.onload = function() {
 
   function activateCenterMode() {
     centerMode = true;
-    status.textContent = "Center image mode activated";
+    status.textContent = "Move image mode activated";
     showCenterPopup();
-    resetPositionBtn.textContent = "✓ Done Centering";
+    resetPositionBtn.textContent = "✓ Done Moving";
     resetPositionBtn.style.backgroundColor = "#4a5"; // green to indicate active state
   }
 
   function deactivateCenterMode() {
     centerMode = false;
-    status.textContent = "Center image mode exited";
+    status.textContent = "Move image mode exited";
     hideCenterPopup();
-    resetPositionBtn.textContent = "⌖ Center Image";
+    resetPositionBtn.textContent = "⌖ Move Image";
     resetPositionBtn.style.backgroundColor = ""; // reset to default
   }
 
   function showCenterPopup() {
     if (centerPopup) return;
     centerPopup = document.createElement('div');
-    centerPopup.textContent = 'Center image mode: Drag to center the image. Tap again to exit.';
+  centerPopup.textContent = 'Move image mode: Drag to move the image. Click "Done Moving" when finished.';
     centerPopup.style.position = 'fixed';
     centerPopup.style.left = '50%';
     
@@ -625,7 +625,7 @@ window.onload = function() {
       deactivateCenterMode();
       imageOffsetX = 0;
       imageOffsetY = 0;
-      status.textContent = "Centering mode deactivated, image reset to center";
+      status.textContent = "Move mode deactivated, image reset to center";
     } else {
       activateCenterMode();
     }
