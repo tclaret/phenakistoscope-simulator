@@ -297,30 +297,45 @@ window.onload = function() {
     ctx.fillStyle = g; ctx.fillRect(0,0,canvas.width,canvas.height);
   }
 
-  // simulation mode: flat spinning with slit mask using slitCount & slitLengthDeg
+  // --- FONCTION DRAW SIMULATION CORRIGÉE ---
+  // Simulation mode: dessine l'image avec une rotation compensée pour créer la persistance de vision.
   function drawSimulation(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
     const cx = canvas.width/2, cy = canvas.height/2;
     ctx.fillStyle = "#070b10"; ctx.fillRect(0,0,canvas.width,canvas.height);
 
     if(discImage && discImage.complete && discImage.naturalWidth>0){
-      ctx.save(); ctx.translate(cx,cy); ctx.rotate(rotation);
-      const s = Math.min((canvas.width*0.9)/discImage.width,(canvas.height*0.9)/discImage.height);
-      const iw = discImage.width*s, ih = discImage.height*s; ctx.drawImage(discImage,-iw/2,-ih/2,iw,ih); ctx.restore();
+        
+        const slits = slitCount || 12;
+        // Angle de rotation par segment (en radians)
+        const rotationPerSegment = (2 * Math.PI / slits);
+        
+        // Calculer l'index de l'image (frame) actuellement visible.
+        // On divise la rotation actuelle par l'angle d'un segment pour trouver l'index.
+        let frameIndex = Math.floor(rotation / rotationPerSegment);
+        
+        // Rotation COMPENSÉE pour l'affichage de l'image fixe :
+        // On fait reculer la rotation de l'image pour qu'elle corresponde exactement 
+        // à l'image fixe que l'on veut voir.
+        // Le compensatedRotation sera un petit angle variant entre 0 et rotationPerSegment
+        const compensatedRotation = rotation - (frameIndex * rotationPerSegment);
+        
+        // --- Rendu de l'image (légèrement tournante, mais synchronisée) ---
+        ctx.save(); 
+        ctx.translate(cx, cy); 
+        
+        // APPLIQUER LA ROTATION COMPENSÉE. 
+        // C'est cette rotation MINIME qui crée l'effet de mouvement dans la frame.
+        ctx.rotate(compensatedRotation);
+        
+        const s = Math.min((canvas.width*0.9)/discImage.width,(canvas.height*0.9)/discImage.height);
+        const iw = discImage.width*s, ih = discImage.height*s; 
+        ctx.drawImage(discImage,-iw/2,-ih/2,iw,ih); 
+        ctx.restore();
     }
+}
+// --- FIN DE LA FONCTION CORRIGÉE ---
 
-    // dynamic slits from sliders
-    const slits = slitCount || 12;
-    const slitW = (slitLengthDeg || 10) * Math.PI/180;
-    ctx.save(); ctx.translate(cx,cy); ctx.rotate(-rotation);
-    ctx.globalCompositeOperation = "destination-in"; ctx.beginPath();
-    for(let i=0;i<slits;i++){
-      const a = i*(2*Math.PI/slits)-slitW/2;
-      ctx.moveTo(0,0);
-      ctx.arc(0,0,Math.max(canvas.width,canvas.height),a,a+slitW);
-    }
-    ctx.fillStyle="#fff"; ctx.fill(); ctx.restore();
-  }
 
   // inset draw
   function drawInset(){
@@ -416,7 +431,7 @@ window.onload = function() {
   function startAuto(duration=120000){
     if(!isRunning){
       isRunning = true; indicator.classList.add('on'); startStop.textContent="⏸ Pause"; status.textContent="Auto-play";
-      rotationVelocity = rotationSpeed;
+      rotationVelocity = rotationSpeed * 50; // Démarrer avec une rotation plus rapide pour simuler le lancement
     }
     if(autoStopTimer) clearTimeout(autoStopTimer);
     autoStopTimer = setTimeout(()=>{
