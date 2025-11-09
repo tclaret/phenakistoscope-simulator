@@ -61,12 +61,14 @@ window.onload = function() {
   let backgroundFrame = new Image();
   backgroundFrame.src = "images/Dancing.jpg";
 
-  // image position state
+  // image position and zoom state
   let imageOffsetX = 0;
   let imageOffsetY = 0;
+  let imageZoom = 1;
   let isPanning = false;
   let lastPanX = 0;
   let lastPanY = 0;
+  let lastPinchDist = 0;
   let centerMode = false;
   let lastTapTime = 0;
   let centerPopup = null;
@@ -313,7 +315,7 @@ window.onload = function() {
       ctx.translate(cx, cy);
       // If in center mode, don't rotate
       if (!centerCross) ctx.rotate(rotation);
-      const s = Math.max((r*2)/discImage.width, (r*2)/discImage.height);
+      const s = Math.max((r*2)/discImage.width, (r*2)/discImage.height) * imageZoom;
       const iw = discImage.width * s, ih = discImage.height * s;
       ctx.drawImage(discImage, -iw/2 + imageOffsetX, -ih/2 + imageOffsetY, iw, ih);
       // Draw cross at center of the image
@@ -372,7 +374,7 @@ window.onload = function() {
       ctx.save(); 
       ctx.translate(cx,cy); 
       ctx.rotate(rotation);
-      const s = Math.min((canvas.width*0.9)/discImage.width,(canvas.height*0.9)/discImage.height);
+      const s = Math.min((canvas.width*0.9)/discImage.width,(canvas.height*0.9)/discImage.height) * imageZoom;
       const iw = discImage.width*s, ih = discImage.height*s; 
       ctx.drawImage(discImage, -iw/2 + imageOffsetX, -ih/2 + imageOffsetY, iw, ih);
       ctx.restore();
@@ -492,7 +494,7 @@ window.onload = function() {
     pointerVelSamples = [];
   }
 
-  // Pan handling with two fingers
+  // Pan and pinch zoom handling with two fingers
   canvas.addEventListener('touchstart', (e) => {
     if (e.touches.length === 2) {
       e.preventDefault();
@@ -501,7 +503,8 @@ window.onload = function() {
       const touch2 = e.touches[1];
       lastPanX = (touch1.clientX + touch2.clientX) / 2;
       lastPanY = (touch1.clientY + touch2.clientY) / 2;
-      status.textContent = "Pan mode: Two fingers to adjust image position";
+      lastPinchDist = Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY);
+      status.textContent = "Pan/Zoom mode: Two fingers to adjust image position and zoom";
     }
     // Double-tap detection for center mode
     if (e.touches.length === 1) {
@@ -529,6 +532,15 @@ window.onload = function() {
       imageOffsetX += deltaX * scale;
       imageOffsetY += deltaY * scale;
 
+      // Pinch zoom
+      const pinchDist = Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY);
+      if (lastPinchDist) {
+        let zoomChange = pinchDist / lastPinchDist;
+        imageZoom *= zoomChange;
+        imageZoom = Math.max(0.2, Math.min(5, imageZoom));
+      }
+      lastPinchDist = pinchDist;
+
       // Limit the pan range to prevent the image from moving too far
       const maxOffset = canvas.width * 0.2;
       imageOffsetX = Math.max(-maxOffset, Math.min(maxOffset, imageOffsetX));
@@ -537,7 +549,7 @@ window.onload = function() {
       lastPanX = currentX;
       lastPanY = currentY;
       
-      status.textContent = `Image position: ${Math.round(imageOffsetX)}, ${Math.round(imageOffsetY)}`;
+      status.textContent = `Image position: ${Math.round(imageOffsetX)}, ${Math.round(imageOffsetY)}, Zoom: ${imageZoom.toFixed(2)}`;
     }
     // Center mode: drag to center
     if (centerMode && e.touches.length === 1) {
@@ -557,7 +569,8 @@ window.onload = function() {
   canvas.addEventListener('touchend', (e) => {
     if (e.touches.length < 2) {
       isPanning = false;
-      status.textContent = "Pan ended - Release both fingers to finish adjusting";
+      lastPinchDist = 0;
+      status.textContent = "Pan/Zoom ended - Release both fingers to finish adjusting";
     }
     if (centerMode && e.touches.length === 0) {
       // Exit center mode on tap
@@ -569,6 +582,17 @@ window.onload = function() {
   canvas.addEventListener('dblclick', (e) => {
     activateCenterMode();
   });
+
+  // Mouse wheel zoom
+  canvas.addEventListener('wheel', (e) => {
+    if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || viewMode === 'photo') {
+      e.preventDefault();
+      let delta = e.deltaY < 0 ? 1.1 : 0.9;
+      imageZoom *= delta;
+      imageZoom = Math.max(0.2, Math.min(5, imageZoom));
+      status.textContent = `Zoom: ${imageZoom.toFixed(2)}`;
+    }
+  }, { passive: false });
 
   function activateCenterMode() {
     centerMode = true;
@@ -607,7 +631,7 @@ window.onload = function() {
     }
   }
 
-  // Add reset position button to controls
+  // Add reset position and zoom buttons to controls
   const resetPositionBtn = document.createElement('button');
   resetPositionBtn.textContent = "⌖ Center Image";
   resetPositionBtn.className = "btn";
@@ -617,6 +641,24 @@ window.onload = function() {
     status.textContent = "Image position reset to center";
   };
   resetBtn.parentNode.insertBefore(resetPositionBtn, resetBtn.nextSibling);
+
+  const zoomInBtn = document.createElement('button');
+  zoomInBtn.textContent = "+ Zoom";
+  zoomInBtn.className = "btn";
+  zoomInBtn.onclick = () => {
+    imageZoom = Math.min(5, imageZoom * 1.15);
+    status.textContent = `Zoom: ${imageZoom.toFixed(2)}`;
+  };
+  resetPositionBtn.parentNode.insertBefore(zoomInBtn, resetPositionBtn.nextSibling);
+
+  const zoomOutBtn = document.createElement('button');
+  zoomOutBtn.textContent = "- Zoom";
+  zoomOutBtn.className = "btn";
+  zoomOutBtn.onclick = () => {
+    imageZoom = Math.max(0.2, imageZoom / 1.15);
+    status.textContent = `Zoom: ${imageZoom.toFixed(2)}`;
+  };
+  zoomInBtn.parentNode.insertBefore(zoomOutBtn, zoomInBtn.nextSibling);
 
   // events
   canvas.addEventListener('pointerdown', onPointerDown);
