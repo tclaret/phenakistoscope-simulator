@@ -289,6 +289,14 @@ window.onload = function() {
     ctx.fillStyle = "#000";
     ctx.fillRect(0,0,canvas.width,canvas.height);
 
+    // Draw a point at the center of the canvas (turning point)
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, Math.max(6, canvas.width*0.01), 0, Math.PI*2);
+    ctx.fillStyle = "#ff3";
+    ctx.fill();
+    ctx.restore();
+
     if(backgroundFrame.complete && backgroundFrame.naturalWidth>0){
       ctx.save();
       ctx.globalAlpha = 0.06;
@@ -308,6 +316,17 @@ window.onload = function() {
       const s = Math.max((r*2)/discImage.width, (r*2)/discImage.height);
       const iw = discImage.width * s, ih = discImage.height * s;
       ctx.drawImage(discImage, -iw/2 + imageOffsetX, -ih/2 + imageOffsetY, iw, ih);
+      // Draw cross at center of the image
+      ctx.save();
+      ctx.strokeStyle = "#0ff";
+      ctx.lineWidth = Math.max(2, canvas.width*0.008);
+      ctx.beginPath();
+      ctx.moveTo(-iw/2 + imageOffsetX, -ih/2 + imageOffsetY + ih/2);
+      ctx.lineTo(iw/2 + imageOffsetX, -ih/2 + imageOffsetY + ih/2);
+      ctx.moveTo(-iw/2 + imageOffsetX + iw/2, -ih/2 + imageOffsetY);
+      ctx.lineTo(-iw/2 + imageOffsetX + iw/2, ih/2 + imageOffsetY);
+      ctx.stroke();
+      ctx.restore();
       ctx.restore();
     }
 
