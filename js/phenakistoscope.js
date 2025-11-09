@@ -65,6 +65,10 @@ window.onload = function() {
   let imageOffsetX = 0;
   let imageOffsetY = 0;
   let imageZoom = 1;
+  // rotation center offset (for decentering)
+  let rotationCenterOffsetX = 0;
+  let rotationCenterOffsetY = 0;
+  let decenterEnabled = false;
   let isPanning = false;
   let lastPanX = 0;
   let lastPanY = 0;
@@ -285,8 +289,9 @@ window.onload = function() {
 
   // draw photo mode (circular disc)
   function drawPhoto(centerCross){
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    const cx = canvas.width/2, cy = canvas.height/2;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const cx = canvas.width/2, cy = canvas.height/2;
+  const centerX = cx + rotationCenterOffsetX, centerY = cy + rotationCenterOffsetY;
     const r = canvas.width * 0.42;
     ctx.fillStyle = "#000";
     ctx.fillRect(0,0,canvas.width,canvas.height);
@@ -304,15 +309,15 @@ window.onload = function() {
       ctx.globalAlpha = 0.06;
       const s = (canvas.width*1.0)/backgroundFrame.naturalWidth;
       const bw = backgroundFrame.naturalWidth * s, bh = backgroundFrame.naturalHeight * s;
-      ctx.drawImage(backgroundFrame, cx - bw/2, cy - bh/2, bw, bh);
+      ctx.drawImage(backgroundFrame, centerX - bw/2, centerY - bh/2, bw, bh);
       ctx.restore();
     }
 
     ctx.beginPath(); ctx.arc(cx, cy + r*0.06, r*1.02, 0, Math.PI*2); ctx.fillStyle = "rgba(0,0,0,0.45)"; ctx.fill();
 
     if(discImage && discImage.complete && discImage.naturalWidth>0){
-      ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.closePath(); ctx.clip();
-      ctx.translate(cx, cy);
+      ctx.save(); ctx.beginPath(); ctx.arc(centerX, centerY, r, 0, Math.PI*2); ctx.closePath(); ctx.clip();
+      ctx.translate(centerX, centerY);
       // If in center mode, don't rotate
       if (!centerCross) ctx.rotate(rotation);
       const s = Math.max((r*2)/discImage.width, (r*2)/discImage.height) * imageZoom;
@@ -338,8 +343,8 @@ window.onload = function() {
       ctx.strokeStyle = "#ff3";
       ctx.lineWidth = Math.max(2, canvas.width*0.008);
       ctx.beginPath();
-      ctx.moveTo(cx-20, cy); ctx.lineTo(cx+20, cy);
-      ctx.moveTo(cx, cy-20); ctx.lineTo(cx, cy+20);
+      ctx.moveTo(centerX-20, centerY); ctx.lineTo(centerX+20, centerY);
+      ctx.moveTo(centerX, centerY-20); ctx.lineTo(centerX, centerY+20);
       ctx.stroke();
       ctx.restore();
     }
@@ -351,15 +356,15 @@ window.onload = function() {
     const holeR = Math.max(4, canvas.width*0.006);
     for(let i=0;i<holes;i++){
       const a = i * (Math.PI*2/holes) + rotation;
-      const hx = cx + Math.cos(a)*(r*0.92), hy = cy + Math.sin(a)*(r*0.92);
+      const hx = centerX + Math.cos(a)*(r*0.92), hy = centerY + Math.sin(a)*(r*0.92);
       ctx.beginPath(); ctx.arc(hx,hy,holeR,0,Math.PI*2); ctx.fillStyle="rgba(0,0,0,0.65)"; ctx.fill();
       ctx.lineWidth = 1; ctx.strokeStyle = "rgba(255,255,255,0.04)"; ctx.stroke();
     }
 
-    ctx.beginPath(); ctx.arc(cx,cy,Math.max(6,canvas.width*0.01),0,Math.PI*2); ctx.fillStyle="#222"; ctx.fill();
+    ctx.beginPath(); ctx.arc(centerX,centerY,Math.max(6,canvas.width*0.01),0,Math.PI*2); ctx.fillStyle="#222"; ctx.fill();
     ctx.lineWidth=2; ctx.strokeStyle="rgba(255,255,255,0.06)"; ctx.stroke();
 
-    const g = ctx.createRadialGradient(cx,cy,r*0.2,cx,cy,r*1.1); g.addColorStop(0,"rgba(0,0,0,0)"); g.addColorStop(1,"rgba(0,0,0,0.45)");
+    const g = ctx.createRadialGradient(centerX,centerY,r*0.2,centerX,centerY,r*1.1); g.addColorStop(0,"rgba(0,0,0,0)"); g.addColorStop(1,"rgba(0,0,0,0.45)");
     ctx.fillStyle = g; ctx.fillRect(0,0,canvas.width,canvas.height);
   }
 
@@ -367,13 +372,14 @@ window.onload = function() {
   function drawSimulation(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
     const cx = canvas.width/2, cy = canvas.height/2;
+    const centerX = cx + rotationCenterOffsetX, centerY = cy + rotationCenterOffsetY;
     ctx.fillStyle = "#070b10"; 
     ctx.fillRect(0,0,canvas.width,canvas.height);
 
 
     if(discImage && discImage.complete && discImage.naturalWidth>0){
       ctx.save(); 
-      ctx.translate(cx,cy); 
+      ctx.translate(centerX,centerY); 
       ctx.rotate(rotation);
       const s = Math.min((canvas.width*0.9)/discImage.width,(canvas.height*0.9)/discImage.height) * imageZoom;
       const iw = discImage.width*s, ih = discImage.height*s; 
@@ -541,7 +547,7 @@ window.onload = function() {
       
       status.textContent = `Zoom: ${imageZoom.toFixed(2)}`;
     }
-    // Center mode: drag to center only when centerMode is active
+    // Move mode: drag to move image or decenter rotation center when centerMode is active
     if (centerMode && e.touches.length === 1) {
       e.preventDefault();
       const touch = e.touches[0];
@@ -549,10 +555,19 @@ window.onload = function() {
       const cx = rect.left + rect.width/2;
       const cy = rect.top + rect.height/2;
       const scale = canvas.width / rect.width;
-      imageOffsetX = (touch.clientX - cx) * scale;
-      imageOffsetY = (touch.clientY - cy) * scale;
-      status.textContent = `Centering: Move image to align with center point`;
-      if (centerPopup) centerPopup.textContent = 'Drag to center the image. Click "Done Centering" when finished.';
+      if (decenterEnabled) {
+        // update rotation center offset
+        rotationCenterOffsetX = (touch.clientX - cx) * scale;
+        rotationCenterOffsetY = (touch.clientY - cy) * scale;
+        status.textContent = `Decentering: ${Math.round(rotationCenterOffsetX)}, ${Math.round(rotationCenterOffsetY)}`;
+        if (centerPopup) centerPopup.textContent = 'Drag to decenter rotation. Click "Done Moving" when finished.';
+      } else {
+        // move the image within the disc
+        imageOffsetX = (touch.clientX - cx) * scale;
+        imageOffsetY = (touch.clientY - cy) * scale;
+        status.textContent = `Moving image: ${Math.round(imageOffsetX)}, ${Math.round(imageOffsetY)}`;
+        if (centerPopup) centerPopup.textContent = 'Drag to move the image. Click "Done Moving" when finished.';
+      }
     }
   });
 
@@ -623,9 +638,7 @@ window.onload = function() {
   resetPositionBtn.onclick = () => {
     if (centerMode) {
       deactivateCenterMode();
-      imageOffsetX = 0;
-      imageOffsetY = 0;
-      status.textContent = "Move mode deactivated, image reset to center";
+      status.textContent = "Move mode deactivated";
     } else {
       activateCenterMode();
     }
@@ -649,6 +662,28 @@ window.onload = function() {
     status.textContent = `Zoom: ${imageZoom.toFixed(2)}`;
   };
   zoomInBtn.parentNode.insertBefore(zoomOutBtn, zoomInBtn.nextSibling);
+
+  // Decenter toggle button
+  const decenterBtn = document.createElement('button');
+  decenterBtn.textContent = "Decenter";
+  decenterBtn.className = "btn";
+  decenterBtn.onclick = () => {
+    decenterEnabled = !decenterEnabled;
+    decenterBtn.style.backgroundColor = decenterEnabled ? '#4a5' : '';
+    decenterBtn.textContent = decenterEnabled ? 'Decentering' : 'Decenter';
+    status.textContent = decenterEnabled ? 'Decenter enabled' : 'Decenter disabled';
+  };
+  zoomOutBtn.parentNode.insertBefore(decenterBtn, zoomOutBtn.nextSibling);
+
+  // Reset offsets button (does not toggle move mode)
+  const resetOffsetsBtn = document.createElement('button');
+  resetOffsetsBtn.textContent = "Reset Position";
+  resetOffsetsBtn.className = "btn";
+  resetOffsetsBtn.onclick = () => {
+    imageOffsetX = 0; imageOffsetY = 0; rotationCenterOffsetX = 0; rotationCenterOffsetY = 0;
+    status.textContent = "Image and center reset to default";
+  };
+  decenterBtn.parentNode.insertBefore(resetOffsetsBtn, decenterBtn.nextSibling);
 
   // events
   canvas.addEventListener('pointerdown', onPointerDown);
