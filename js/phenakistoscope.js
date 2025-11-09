@@ -62,6 +62,13 @@ window.onload = function() {
   let backgroundFrame = new Image();
   backgroundFrame.src = "images/Dancing.jpg";
 
+  // image position state
+  let imageOffsetX = 0;
+  let imageOffsetY = 0;
+  let isPanning = false;
+  let lastPanX = 0;
+  let lastPanY = 0;
+
   let viewMode = 'simulation'; // DÉFAUT MAINTENANT SUR 'simulation'
   let isRunning = false;
   let rotation = 0;
@@ -115,6 +122,8 @@ window.onload = function() {
     const img = new Image();
     img.onload = () => {
       discImage = img;
+      imageOffsetX = 0;
+      imageOffsetY = 0;
       updateThumbnail(p);
       status.textContent = "Loaded " + f;
       showSpinner(false);
@@ -277,9 +286,7 @@ window.onload = function() {
       ctx.translate(cx, cy); ctx.rotate(rotation);
       const s = Math.max((r*2)/discImage.width, (r*2)/discImage.height);
       const iw = discImage.width * s, ih = discImage.height * s;
-      
-      // APPLIQUER L'OFFSET ICI POUR LE MODE PHOTO
-      ctx.drawImage(discImage, offsetX, offsetY, iw, ih); 
+      ctx.drawImage(discImage, -iw/2 + imageOffsetX, -ih/2 + imageOffsetY, iw, ih);
       
       ctx.restore();
     }
@@ -316,7 +323,7 @@ window.onload = function() {
       ctx.rotate(rotation);
       const s = Math.min((canvas.width*0.9)/discImage.width,(canvas.height*0.9)/discImage.height);
       const iw = discImage.width*s, ih = discImage.height*s; 
-      ctx.drawImage(discImage,-iw/2,-ih/2,iw,ih); 
+      ctx.drawImage(discImage, -iw/2 + imageOffsetX, -ih/2 + imageOffsetY, iw, ih);
       ctx.restore();
     }
 
@@ -425,6 +432,65 @@ window.onload = function() {
     }
     pointerVelSamples = [];
   }
+
+  // Pan handling with two fingers
+  canvas.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      isPanning = true;
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      lastPanX = (touch1.clientX + touch2.clientX) / 2;
+      lastPanY = (touch1.clientY + touch2.clientY) / 2;
+      status.textContent = "Pan mode: Two fingers to adjust image position";
+    }
+  });
+
+  canvas.addEventListener('touchmove', (e) => {
+    if (isPanning && e.touches.length === 2) {
+      e.preventDefault();
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      const currentX = (touch1.clientX + touch2.clientX) / 2;
+      const currentY = (touch1.clientY + touch2.clientY) / 2;
+
+      const deltaX = currentX - lastPanX;
+      const deltaY = currentY - lastPanY;
+
+      // Scale the movement based on canvas size
+      const scale = canvas.width / canvas.getBoundingClientRect().width;
+      imageOffsetX += deltaX * scale;
+      imageOffsetY += deltaY * scale;
+
+      // Limit the pan range to prevent the image from moving too far
+      const maxOffset = canvas.width * 0.2;
+      imageOffsetX = Math.max(-maxOffset, Math.min(maxOffset, imageOffsetX));
+      imageOffsetY = Math.max(-maxOffset, Math.min(maxOffset, imageOffsetY));
+
+      lastPanX = currentX;
+      lastPanY = currentY;
+      
+      status.textContent = `Image position: ${Math.round(imageOffsetX)}, ${Math.round(imageOffsetY)}`;
+    }
+  });
+
+  canvas.addEventListener('touchend', (e) => {
+    if (e.touches.length < 2) {
+      isPanning = false;
+      status.textContent = "Pan ended - Release both fingers to finish adjusting";
+    }
+  });
+
+  // Add reset position button to controls
+  const resetPositionBtn = document.createElement('button');
+  resetPositionBtn.textContent = "⌖ Center Image";
+  resetPositionBtn.className = "btn";
+  resetPositionBtn.onclick = () => {
+    imageOffsetX = 0;
+    imageOffsetY = 0;
+    status.textContent = "Image position reset to center";
+  };
+  resetBtn.parentNode.insertBefore(resetPositionBtn, resetBtn.nextSibling);
 
   // events
   canvas.addEventListener('pointerdown', onPointerDown);
