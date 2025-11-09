@@ -85,6 +85,7 @@ window.onload = function() {
   let showInset = false;
   let autoStopTimer = null;
   let glowIntensity = 0.6; // Fixed glow intensity
+  let rotationPaused = false;
 
   // slit state
   let slitCount = parseInt(slitsSlider.value || 40);
@@ -447,6 +448,11 @@ window.onload = function() {
 
   // physics: update rotation by velocity; apply friction when not driven
   function physicsStep(){
+    if (rotationPaused) {
+      // keep calling but don't update rotation or velocity while paused
+      requestAnimationFrame(physicsStep);
+      return;
+    }
     if(isRunning) {
       // When running, maintain constant speed
       rotationVelocity = rotationSpeed * (rotationVelocity < 0 ? -1 : 1);
@@ -628,6 +634,8 @@ window.onload = function() {
     showCenterPopup();
     resetPositionBtn.textContent = "✓ Done Moving";
     resetPositionBtn.style.backgroundColor = "#4a5"; // green to indicate active state
+    // pause rotation so orientation doesn't jump when leaving move mode
+    rotationPaused = true;
   }
 
   function deactivateCenterMode() {
@@ -636,6 +644,7 @@ window.onload = function() {
     hideCenterPopup();
     resetPositionBtn.textContent = "⌖ Move Image";
     resetPositionBtn.style.backgroundColor = ""; // reset to default
+    rotationPaused = false;
   }
 
   function showCenterPopup() {
@@ -666,7 +675,7 @@ window.onload = function() {
 
   // Add reset position and zoom buttons to controls
   const resetPositionBtn = document.createElement('button');
-  resetPositionBtn.textContent = "⌖ Center Image";
+  resetPositionBtn.textContent = "⌖ Move Image";
   resetPositionBtn.className = "btn";
   resetPositionBtn.onclick = () => {
     if (centerMode) {
