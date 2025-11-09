@@ -370,6 +370,7 @@ window.onload = function() {
     ctx.fillStyle = "#070b10"; 
     ctx.fillRect(0,0,canvas.width,canvas.height);
 
+    
     if(discImage && discImage.complete && discImage.naturalWidth>0){
       ctx.save(); 
       ctx.translate(cx,cy); 
