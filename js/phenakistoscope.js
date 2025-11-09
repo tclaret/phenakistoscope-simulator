@@ -598,12 +598,16 @@ window.onload = function() {
     centerMode = true;
     status.textContent = "Center image mode activated";
     showCenterPopup();
+    resetPositionBtn.textContent = "✓ Done Centering";
+    resetPositionBtn.style.backgroundColor = "#4a5"; // green to indicate active state
   }
 
   function deactivateCenterMode() {
     centerMode = false;
     status.textContent = "Center image mode exited";
     hideCenterPopup();
+    resetPositionBtn.textContent = "⌖ Center Image";
+    resetPositionBtn.style.backgroundColor = ""; // reset to default
   }
 
   function showCenterPopup() {
@@ -636,9 +640,14 @@ window.onload = function() {
   resetPositionBtn.textContent = "⌖ Center Image";
   resetPositionBtn.className = "btn";
   resetPositionBtn.onclick = () => {
-    imageOffsetX = 0;
-    imageOffsetY = 0;
-    status.textContent = "Image position reset to center";
+    if (centerMode) {
+      deactivateCenterMode();
+      imageOffsetX = 0;
+      imageOffsetY = 0;
+      status.textContent = "Centering mode deactivated, image reset to center";
+    } else {
+      activateCenterMode();
+    }
   };
   resetBtn.parentNode.insertBefore(resetPositionBtn, resetBtn.nextSibling);
 
