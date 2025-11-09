@@ -38,14 +38,15 @@ window.onload = function() {
   const indicator = document.getElementById('indicator');
   const speedSlider = document.getElementById('speed');
   const speedValue = document.getElementById('speedValue');
-  // Remove light control references
+  const lightSlider = document.getElementById('light');
+  const lightValue = document.getElementById('lightValue');
   const toggleInset = document.getElementById('toggleInset');
   const insetDiv = document.getElementById('inset');
   const spinner = document.getElementById('spinner');
   const status = document.getElementById('status');
   const glow = document.getElementById('glow');
 
-  // NEW slit controls
+  // slit controls
   const slitsSlider = document.getElementById('slits');
   const slitsValue = document.getElementById('slitsValue');
   const slitLenSlider = document.getElementById('slitLen');
@@ -59,36 +60,23 @@ window.onload = function() {
   // state
   let discImage = new Image();
   let backgroundFrame = new Image();
-  backgroundFrame.src = "images/Dancing.jpg";
-
-  // image position and zoom state
-  let imageOffsetX = 0;
-  let imageOffsetY = 0;
-  let imageZoom = 1;
-  // rotation center offset (for decentering)
-  let rotationCenterOffsetX = 0;
-  let rotationCenterOffsetY = 0;
-  let decenterEnabled = false;
-  let isPanning = false;
-  let lastPanX = 0;
-  let lastPanY = 0;
-  let lastPinchDist = 0;
-  let centerMode = false;
-  let lastTapTime = 0;
-  let centerPopup = null;
+  backgroundFrame.src = "images/frame_2.png";
 
   let viewMode = 'simulation'; // DÉFAUT MAINTENANT SUR 'simulation'
   let isRunning = false;
   let rotation = 0;
   let rotationVelocity = 0;   // actual angular velocity (radians/frame)
   let rotationSpeed = parseFloat(speedSlider.value); // base speed used for auto-run
-  let showInset = false;
+  let showInset = true; // DÉFAUT À VRAI pour montrer la loupe
   let autoStopTimer = null;
-  let glowIntensity = 0.6; // Fixed glow intensity
-  let rotationPaused = false;
+  let glowIntensity = parseFloat(lightSlider.value);
+
+  // NOUVEAU: Offset pour le centrage de l'image
+  let offsetX = 0;
+  let offsetY = 0;
 
   // slit state
-  let slitCount = parseInt(slitsSlider.value || 40);
+  let slitCount = parseInt(slitsSlider.value || 12);
   let slitLengthDeg = parseInt(slitLenSlider.value || 10);
 
   // drag spin variables
@@ -96,7 +84,6 @@ window.onload = function() {
   let lastPointerAngle = 0;
   let lastPointerTime = 0;
   let pointerVelSamples = []; // recent samples of angular velocity
-  let pointerMoveMode = false; // when Move Image is active and using pointer to move/decenter
 
   // helpers
   function pathFor(filename){ return "images/" + filename; }
@@ -113,6 +100,9 @@ window.onload = function() {
     loadSelectedDisc();
     // Sélectionner 'simulation' par défaut dans le HTML
     viewModeSel.value = 'simulation';
+    // Afficher l'incrustation par défaut
+    insetDiv.style.display = showInset ? 'block' : 'none';
+    toggleInset.textContent = showInset ? "Hide Inset" : "Show Inset";
   }
 
   function showSpinner(on){ spinner.classList.toggle('visible', !!on); }
@@ -122,35 +112,45 @@ window.onload = function() {
     thumbnail.onload = () => { thumbnail.style.opacity = 1; };
     thumbnail.src = src;
   }
-  
+
+  // Centrage automatique (méthode simple)
+  function centerDisc() {
+    if (!discImage || !discImage.width) {
+      resetDiscOffset();
+      return;
+    }
+    // L'offset est calculé pour aligner le centre de l'image (width/2, height/2) avec (0,0) après translation du canvas
+    offsetX = -(discImage.width * 0.5);
+    offsetY = -(discImage.height * 0.5);
+
+    status.textContent = `Centrage ajusté (dx: ${offsetX.toFixed(0)}, dy: ${offsetY.toFixed(0)})`;
+  }
+
+  function resetDiscOffset() {
+    offsetX = 0;
+    offsetY = 0;
+    status.textContent = "Centrage réinitialisé (offset 0)";
+  }
+
+
   // load from images/ folder (photo mode default)
   function loadSelectedDisc(){
     const f = discSelect.value;
     if(!f) return;
-    let p = pathFor(f);
-    // Always use forward slashes
-    p = p.replace(/\\/g, '/');
+    const p = pathFor(f);
     showSpinner(true);
     const img = new Image();
-    // Set crossOrigin for local images (empty string)
-    img.crossOrigin = "";
     img.onload = () => {
       discImage = img;
-      imageOffsetX = 0;
-      imageOffsetY = 0;
+      centerDisc(); // Centrer après le chargement
       updateThumbnail(p);
       status.textContent = "Loaded " + f;
       showSpinner(false);
       console.log("Loaded", p);
     };
     img.onerror = (e) => {
-      status.textContent = "Error loading " + f + ". Try another image or check file format.";
+      status.textContent = "Error loading " + f;
       showSpinner(false);
-      // fallback: try lowercased filename
-      if (f !== f.toLowerCase()) {
-        const lower = pathFor(f.toLowerCase());
-        img.src = lower;
-      }
       console.error("Error loading image", p, e);
     };
     img.src = p;
@@ -167,6 +167,7 @@ window.onload = function() {
       const img = new Image();
       img.onload = () => {
         discImage = img;
+        centerDisc(); // Centrer après le chargement
         updateThumbnail(ev.target.result);
         status.textContent = "Loaded local " + f.name;
         showSpinner(false);
@@ -188,6 +189,7 @@ window.onload = function() {
     img.crossOrigin = "anonymous";
     img.onload = () => {
       discImage = img;
+      centerDisc(); // Centrer après le chargement
       updateThumbnail(url);
       status.textContent = "Loaded from URL";
       showSpinner(false);
@@ -202,25 +204,13 @@ window.onload = function() {
     status.textContent = "View: " + viewMode;
   });
 
-  // start/stop toggle with improved control
+  // start/stop toggle
   startStop.addEventListener('click', ()=>{
     isRunning = !isRunning;
     indicator.classList.toggle('on', isRunning);
     startStop.textContent = isRunning ? "⏸ Pause" : "▶️ Start";
     status.textContent = isRunning ? "Playing" : "Paused";
-    
-    if(isRunning) {
-      // Start with initial velocity if stopped
-      if (Math.abs(rotationVelocity) < 0.001) {
-        rotationVelocity = rotationSpeed;
-      }
-    } else {
-      // Clear auto-stop timer when manually stopping
-      if(autoStopTimer) {
-        clearTimeout(autoStopTimer);
-        autoStopTimer = null;
-      }
-    }
+    if(!isRunning && autoStopTimer){ clearTimeout(autoStopTimer); autoStopTimer = null; }
   });
 
   // reverse spin
@@ -240,7 +230,11 @@ window.onload = function() {
     speedValue.textContent = rotationSpeed.toFixed(3);
   });
 
-  // Remove light slider event listener
+  // light slider
+  lightSlider.addEventListener('input', (e)=>{
+    glowIntensity = parseFloat(e.target.value);
+    lightValue.textContent = glowIntensity.toFixed(2);
+  });
 
   // slit sliders listeners (NEW)
   slitsSlider.addEventListener('input', (e) => {
@@ -256,6 +250,7 @@ window.onload = function() {
   toggleInset.addEventListener('click', ()=>{
     showInset = !showInset;
     insetDiv.style.display = showInset ? 'block' : 'none';
+    toggleInset.textContent = showInset ? "Hide Inset" : "Show Inset";
   });
 
   // dropdown change
@@ -271,7 +266,7 @@ window.onload = function() {
     // inset
     const irect = insetCanvas.getBoundingClientRect();
     insetCanvas.width = Math.floor(irect.width * dpr);
-    insetCanvas.height = Math.floor(irect.height * dpr);
+    insetCanvas.height = insetCanvas.width; // Force carré
   }
   window.addEventListener('resize', resizeCanvas);
 
@@ -281,8 +276,9 @@ window.onload = function() {
     const size = Math.min(canvas.width, canvas.height) + 80;
     el.style.width = size + 'px';
     el.style.height = size + 'px';
-    const cx = canvas.getBoundingClientRect().left + canvas.offsetWidth/2 - size/2;
-    const cy = canvas.getBoundingClientRect().top + canvas.offsetHeight/2 - size/2;
+    const rect = canvas.getBoundingClientRect();
+    const cx = rect.left + rect.width/2 - size/2;
+    const cy = rect.top + rect.height/2 - size/2;
     el.style.left = cx + 'px';
     el.style.top = cy + 'px';
     el.style.background = `radial-gradient(circle, rgba(110,231,183,${0.25*opacity}) 0%, rgba(110,231,183,${0.02*opacity}) 35%, rgba(0,0,0,0) 65%)`;
@@ -290,64 +286,33 @@ window.onload = function() {
   }
 
   // draw photo mode (circular disc)
-  function drawPhoto(centerCross){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  const cx = canvas.width/2, cy = canvas.height/2;
-  const centerX = cx + rotationCenterOffsetX, centerY = cy + rotationCenterOffsetY;
+  function drawPhoto(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    const cx = canvas.width/2, cy = canvas.height/2;
     const r = canvas.width * 0.42;
     ctx.fillStyle = "#000";
     ctx.fillRect(0,0,canvas.width,canvas.height);
-
-    // Draw a point at the center of the canvas (turning point)
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(cx, cy, Math.max(6, canvas.width*0.01), 0, Math.PI*2);
-    ctx.fillStyle = "#ff3";
-    ctx.fill();
-    ctx.restore();
 
     if(backgroundFrame.complete && backgroundFrame.naturalWidth>0){
       ctx.save();
       ctx.globalAlpha = 0.06;
       const s = (canvas.width*1.0)/backgroundFrame.naturalWidth;
       const bw = backgroundFrame.naturalWidth * s, bh = backgroundFrame.naturalHeight * s;
-      ctx.drawImage(backgroundFrame, centerX - bw/2, centerY - bh/2, bw, bh);
+      ctx.drawImage(backgroundFrame, cx - bw/2, cy - bh/2, bw, bh);
       ctx.restore();
     }
 
     ctx.beginPath(); ctx.arc(cx, cy + r*0.06, r*1.02, 0, Math.PI*2); ctx.fillStyle = "rgba(0,0,0,0.45)"; ctx.fill();
 
     if(discImage && discImage.complete && discImage.naturalWidth>0){
-      ctx.save(); ctx.beginPath(); ctx.arc(centerX, centerY, r, 0, Math.PI*2); ctx.closePath(); ctx.clip();
-      ctx.translate(centerX, centerY);
-      // If in center mode, don't rotate
-      if (!centerCross) ctx.rotate(rotation);
-      const s = Math.max((r*2)/discImage.width, (r*2)/discImage.height) * imageZoom;
+      ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.closePath(); ctx.clip();
+      ctx.translate(cx, cy); ctx.rotate(rotation);
+      const s = Math.max((r*2)/discImage.width, (r*2)/discImage.height);
       const iw = discImage.width * s, ih = discImage.height * s;
-      ctx.drawImage(discImage, -iw/2 + imageOffsetX, -ih/2 + imageOffsetY, iw, ih);
-      // Draw cross at center of the image
-      ctx.save();
-      ctx.strokeStyle = "#0ff";
-      ctx.lineWidth = Math.max(2, canvas.width*0.008);
-      ctx.beginPath();
-      ctx.moveTo(-iw/2 + imageOffsetX, -ih/2 + imageOffsetY + ih/2);
-      ctx.lineTo(iw/2 + imageOffsetX, -ih/2 + imageOffsetY + ih/2);
-      ctx.moveTo(-iw/2 + imageOffsetX + iw/2, -ih/2 + imageOffsetY);
-      ctx.lineTo(-iw/2 + imageOffsetX + iw/2, ih/2 + imageOffsetY);
-      ctx.stroke();
-      ctx.restore();
-      ctx.restore();
-    }
 
-    // Draw cross at center in center mode
-    if (centerCross) {
-      ctx.save();
-      ctx.strokeStyle = "#ff3";
-      ctx.lineWidth = Math.max(2, canvas.width*0.008);
-      ctx.beginPath();
-      ctx.moveTo(centerX-20, centerY); ctx.lineTo(centerX+20, centerY);
-      ctx.moveTo(centerX, centerY-20); ctx.lineTo(centerX, centerY+20);
-      ctx.stroke();
+      // APPLIQUER L'OFFSET
+      ctx.drawImage(discImage, offsetX, offsetY, iw, ih);
+
       ctx.restore();
     }
 
@@ -358,15 +323,15 @@ window.onload = function() {
     const holeR = Math.max(4, canvas.width*0.006);
     for(let i=0;i<holes;i++){
       const a = i * (Math.PI*2/holes) + rotation;
-      const hx = centerX + Math.cos(a)*(r*0.92), hy = centerY + Math.sin(a)*(r*0.92);
+      const hx = cx + Math.cos(a)*(r*0.92), hy = cy + Math.sin(a)*(r*0.92);
       ctx.beginPath(); ctx.arc(hx,hy,holeR,0,Math.PI*2); ctx.fillStyle="rgba(0,0,0,0.65)"; ctx.fill();
       ctx.lineWidth = 1; ctx.strokeStyle = "rgba(255,255,255,0.04)"; ctx.stroke();
     }
 
-    ctx.beginPath(); ctx.arc(centerX,centerY,Math.max(6,canvas.width*0.01),0,Math.PI*2); ctx.fillStyle="#222"; ctx.fill();
+    ctx.beginPath(); ctx.arc(cx,cy,Math.max(6,canvas.width*0.01),0,Math.PI*2); ctx.fillStyle="#222"; ctx.fill();
     ctx.lineWidth=2; ctx.strokeStyle="rgba(255,255,255,0.06)"; ctx.stroke();
 
-    const g = ctx.createRadialGradient(centerX,centerY,r*0.2,centerX,centerY,r*1.1); g.addColorStop(0,"rgba(0,0,0,0)"); g.addColorStop(1,"rgba(0,0,0,0.45)");
+    const g = ctx.createRadialGradient(cx,cy,r*0.2,cx,cy,r*1.1); g.addColorStop(0,"rgba(0,0,0,0)"); g.addColorStop(1,"rgba(0,0,0,0.45)");
     ctx.fillStyle = g; ctx.fillRect(0,0,canvas.width,canvas.height);
   }
 
@@ -374,73 +339,102 @@ window.onload = function() {
   function drawSimulation(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
     const cx = canvas.width/2, cy = canvas.height/2;
-    const centerX = cx + rotationCenterOffsetX, centerY = cy + rotationCenterOffsetY;
-    ctx.fillStyle = "#070b10"; 
-    ctx.fillRect(0,0,canvas.width,canvas.height);
-
+    ctx.fillStyle = "#070b10"; ctx.fillRect(0,0,canvas.width,canvas.height);
 
     if(discImage && discImage.complete && discImage.naturalWidth>0){
-      ctx.save(); 
-      ctx.translate(centerX,centerY); 
-      ctx.rotate(rotation);
-      const s = Math.min((canvas.width*0.9)/discImage.width,(canvas.height*0.9)/discImage.height) * imageZoom;
-      const iw = discImage.width*s, ih = discImage.height*s; 
-      ctx.drawImage(discImage, -iw/2 + imageOffsetX, -ih/2 + imageOffsetY, iw, ih);
-      ctx.restore();
-    }
 
-    // Apply slit mask
-    const slits = slitCount || 40;
-    const slitW = (slitLengthDeg || 10) * Math.PI/180;
-    ctx.save(); 
-    ctx.translate(cx,cy); 
-    ctx.rotate(-rotation);
-    ctx.globalCompositeOperation = "destination-in"; 
-    ctx.beginPath();
-    for(let i=0;i<slits;i++){
-      const a = i*(2*Math.PI/slits)-slitW/2;
-      ctx.moveTo(0,0);
-      ctx.arc(0,0,Math.max(canvas.width,canvas.height),a,a+slitW);
+        const slits = slitCount || 12;
+        // Angle de rotation par segment (en radians)
+        const rotationPerSegment = (2 * Math.PI / slits);
+
+        // Calculer l'index de l'image (frame) actuellement visible.
+        let frameIndex = Math.floor(rotation / rotationPerSegment);
+
+        // Rotation COMPENSÉE
+        const compensatedRotation = rotation - (frameIndex * rotationPerSegment);
+
+        // --- Rendu de l'image (légèrement tournante, mais synchronisée) ---
+        ctx.save();
+        ctx.translate(cx, cy);
+
+        // APPLIQUER LA ROTATION COMPENSÉE.
+        ctx.rotate(compensatedRotation);
+
+        const s = Math.min((canvas.width*0.9)/discImage.width,(canvas.height*0.9)/discImage.height);
+        const iw = discImage.width*s, ih = discImage.height*s;
+
+        // APPLIQUER L'OFFSET
+        ctx.drawImage(discImage, offsetX, offsetY, iw, ih);
+
+        ctx.restore();
     }
-    ctx.fillStyle="#fff"; 
-    ctx.fill(); 
-    ctx.restore();
   }
 
 
-  // inset draw
+  // --- FONCTION INSET MODIFIÉE : ZOOM SUR LE SEGMENT ---
   function drawInset(){
     insetCtx.clearRect(0,0,insetCanvas.width,insetCanvas.height);
-    if(!showInset) return;
-    insetCtx.save(); insetCtx.translate(insetCanvas.width/2,insetCanvas.height/2); insetCtx.rotate(rotation);
-    if(discImage && discImage.complete && discImage.naturalWidth>0){
-      const s = Math.max(insetCanvas.width/discImage.width, insetCanvas.height/discImage.height);
-      const iw = discImage.width*s, ih = discImage.height*s; 
-      
-      // Map main canvas image offsets into inset canvas coordinates
-      const offsetScaleX = insetCanvas.width / canvas.width;
-      const offsetScaleY = insetCanvas.height / canvas.height;
-      const ix = -iw/2 + (imageOffsetX * offsetScaleX);
-      const iy = -ih/2 + (imageOffsetY * offsetScaleY);
-      insetCtx.drawImage(discImage, ix, iy, iw, ih);
-    }
+    if(!showInset || !discImage || !discImage.complete) return;
+
+    const slits = slitCount || 12;
+    const rotationPerSegment = (2 * Math.PI / slits);
+    const frameIndex = Math.floor(rotation / rotationPerSegment);
+    const iw = discImage.width;
+    const ih = discImage.height;
+
+    // 1. Déterminer la zone (segment) à zoomer sur l'image source (discImage)
+    // Nous supposons que les segments sont répartis autour du centre de l'image.
+    // Pour simplifier, nous allons zoomer sur la zone du segment actuellement "visible"
+    // qui correspond à l'angle 0 (ou 3 heures).
+
+    // Calculer l'angle où se trouve le segment "frameIndex"
+    const segmentAngle = frameIndex * rotationPerSegment;
+
+    // Déterminer la rotation NÉCESSAIRE pour amener ce segment (frameIndex)
+    // à la position 0 (au centre de l'incrustation)
+    const rotationToCenterSegment = rotation - segmentAngle;
+
+    // 2. Préparer l'incrustation
+    const icx = insetCanvas.width/2;
+    const icy = insetCanvas.height/2;
+
+    // 3. Dessiner l'image entière, mais en appliquant la rotation corrigée et un zoom élevé
+    insetCtx.save();
+
+    // Pour zoomer le segment au centre :
+    // - On translate l'origine au centre de l'incrustation
+    // - On applique un zoom (facteur 4 ici, à ajuster)
+    // - On applique la rotation pour centrer le segment actuellement vu
+    insetCtx.translate(icx, icy);
+    const zoomFactor = 4; // Facteur de zoom
+    insetCtx.scale(zoomFactor, zoomFactor);
+
+    // Appliquer la rotation corrigée + rotation restante pour le ralenti
+    insetCtx.rotate(rotationToCenterSegment);
+
+    // Mise à l'échelle de l'image source pour qu'elle corresponde à la zone zoomée
+    const scaleForZoom = (icx * 2) / iw;
+    const sw = iw * scaleForZoom;
+    const sh = ih * scaleForZoom;
+
+    // Dessiner l'image centrée sur le point de rotation (0,0) avec l'offset
+    insetCtx.drawImage(discImage, offsetX * scaleForZoom, offsetY * scaleForZoom, sw, sh);
+
     insetCtx.restore();
-    insetCtx.beginPath(); insetCtx.arc(insetCanvas.width/2,insetCanvas.height/2,insetCanvas.width/2 - 2,0,Math.PI*2); insetCtx.lineWidth = 3; insetCtx.strokeStyle="rgba(255,255,255,0.06)"; insetCtx.stroke();
+
+    // Ajout d'une bordure décorative
+    insetCtx.beginPath(); insetCtx.arc(icx, icy, icx - 2, 0, Math.PI*2); insetCtx.lineWidth = 3; insetCtx.strokeStyle="rgba(255,255,255,0.15)"; insetCtx.stroke();
   }
+  // --- FIN DE LA FONCTION INSET MODIFIÉE ---
+
 
   // main render loop
   function render(){
     const glowOp = isRunning ? (0.4 + 0.6*Math.abs(Math.sin(rotation*0.2))) * glowIntensity : 0.05 * glowIntensity;
     drawGlow(glowOp);
 
-    if(centerMode) {
-      // Pause rotation in center mode
-      drawPhoto(true);
-    } else {
-      if(viewMode === 'photo') drawPhoto();
-      else if(viewMode === 'simulation') drawSimulation();
-      else drawPhoto(); // fallback to photo mode if unknown view mode
-    }
+    if(viewMode === 'simulation') drawSimulation();
+    else if(viewMode === 'photo') drawPhoto();
 
     drawInset();
     requestAnimationFrame(render);
@@ -448,21 +442,13 @@ window.onload = function() {
 
   // physics: update rotation by velocity; apply friction when not driven
   function physicsStep(){
-    if (rotationPaused) {
-      // keep calling but don't update rotation or velocity while paused
-      requestAnimationFrame(physicsStep);
-      return;
+    if(isRunning && Math.abs(rotationVelocity) < Math.abs(rotationSpeed*1.2)){
+      const target = rotationSpeed * Math.sign(rotationVelocity || 1);
+      rotationVelocity += (target - rotationVelocity) * 0.03;
     }
-    if(isRunning) {
-      // When running, maintain constant speed
-      rotationVelocity = rotationSpeed * (rotationVelocity < 0 ? -1 : 1);
-    } else if (!isDragging) {
-      // Apply friction when not running and not being dragged
-      rotationVelocity *= 0.95;
-      if(Math.abs(rotationVelocity) < 0.000001) rotationVelocity = 0;
-    }
-    
     rotation += rotationVelocity;
+    rotationVelocity *= isDragging ? 0.995 : 0.995;
+    if(Math.abs(rotationVelocity) < 0.000001) rotationVelocity = 0;
     requestAnimationFrame(physicsStep);
   }
 
@@ -475,15 +461,6 @@ window.onload = function() {
   }
 
   function onPointerDown(e){
-    // If Move (centerMode) is active, use pointer to move/decenter the image instead of spinning
-    if (centerMode) {
-      pointerMoveMode = true;
-      lastPanX = e.clientX;
-      lastPanY = e.clientY;
-      try { canvas.setPointerCapture(e.pointerId); } catch(e){}
-      return;
-    }
-
     isDragging = true;
     pointerVelSamples = [];
     lastPointerAngle = pointerAngle(e.clientX, e.clientY);
@@ -491,23 +468,6 @@ window.onload = function() {
     try { canvas.setPointerCapture(e.pointerId); } catch(e){}
   }
   function onPointerMove(e){
-    if (pointerMoveMode) {
-      const rect = canvas.getBoundingClientRect();
-      const scale = canvas.width / rect.width;
-      // if decentering, move rotation center; otherwise move image
-      if (decenterEnabled) {
-        rotationCenterOffsetX += (e.clientX - lastPanX) * scale;
-        rotationCenterOffsetY += (e.clientY - lastPanY) * scale;
-        status.textContent = `Decentering: ${Math.round(rotationCenterOffsetX)}, ${Math.round(rotationCenterOffsetY)}`;
-      } else {
-        imageOffsetX += (e.clientX - lastPanX) * scale;
-        imageOffsetY += (e.clientY - lastPanY) * scale;
-        status.textContent = `Moving image: ${Math.round(imageOffsetX)}, ${Math.round(imageOffsetY)}`;
-      }
-      lastPanX = e.clientX; lastPanY = e.clientY;
-      return;
-    }
-
     if(!isDragging) return;
     const now = performance.now();
     const angle = pointerAngle(e.clientX, e.clientY);
@@ -522,12 +482,6 @@ window.onload = function() {
     lastPointerTime = now;
   }
   function onPointerUp(e){
-    if (pointerMoveMode) {
-      pointerMoveMode = false;
-      try { canvas.releasePointerCapture(e.pointerId); } catch(e){}
-      return;
-    }
-
     if(!isDragging) return;
     isDragging = false;
     if(pointerVelSamples.length){
@@ -544,189 +498,6 @@ window.onload = function() {
     pointerVelSamples = [];
   }
 
-  // Pan and pinch zoom handling with two fingers
-  canvas.addEventListener('touchstart', (e) => {
-    if (e.touches.length === 2) {
-      e.preventDefault();
-      const touch1 = e.touches[0];
-      const touch2 = e.touches[1];
-      lastPinchDist = Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY);
-      status.textContent = "Zoom: Use two fingers to zoom the image";
-    }
-  });
-
-  canvas.addEventListener('touchmove', (e) => {
-    if (e.touches.length === 2) {
-      e.preventDefault();
-      const touch1 = e.touches[0];
-      const touch2 = e.touches[1];
-
-      // Pinch zoom
-      const pinchDist = Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY);
-      if (lastPinchDist) {
-        let zoomChange = pinchDist / lastPinchDist;
-        const oldZoom = imageZoom;
-        imageZoom *= zoomChange;
-        imageZoom = Math.max(0.2, Math.min(5, imageZoom));
-        
-        // Adjust offset to keep the pinch center point stable
-        if (oldZoom !== imageZoom) {
-          const rect = canvas.getBoundingClientRect();
-          const scale = canvas.width / rect.width;
-          const centerX = (touch1.clientX + touch2.clientX) / 2;
-          const centerY = (touch1.clientY + touch2.clientY) / 2;
-          const canvasCenterX = rect.left + rect.width / 2;
-          const canvasCenterY = rect.top + rect.height / 2;
-          
-          imageOffsetX *= imageZoom / oldZoom;
-          imageOffsetY *= imageZoom / oldZoom;
-        }
-      }
-      lastPinchDist = pinchDist;
-      
-      status.textContent = `Zoom: ${imageZoom.toFixed(2)}`;
-    }
-    // Move mode: drag to move image or decenter rotation center when centerMode is active
-    if (centerMode && e.touches.length === 1) {
-      e.preventDefault();
-      const touch = e.touches[0];
-      const rect = canvas.getBoundingClientRect();
-      const cx = rect.left + rect.width/2;
-      const cy = rect.top + rect.height/2;
-      const scale = canvas.width / rect.width;
-      if (decenterEnabled) {
-        // update rotation center offset
-        rotationCenterOffsetX = (touch.clientX - cx) * scale;
-        rotationCenterOffsetY = (touch.clientY - cy) * scale;
-        status.textContent = `Decentering: ${Math.round(rotationCenterOffsetX)}, ${Math.round(rotationCenterOffsetY)}`;
-        if (centerPopup) centerPopup.textContent = 'Drag to decenter rotation. Click "Done Moving" when finished.';
-      } else {
-        // move the image within the disc
-        imageOffsetX = (touch.clientX - cx) * scale;
-        imageOffsetY = (touch.clientY - cy) * scale;
-        status.textContent = `Moving image: ${Math.round(imageOffsetX)}, ${Math.round(imageOffsetY)}`;
-        if (centerPopup) centerPopup.textContent = 'Drag to move the image. Click "Done Moving" when finished.';
-      }
-    }
-  });
-
-  canvas.addEventListener('touchend', (e) => {
-    if (e.touches.length < 2) {
-      lastPinchDist = 0;
-      status.textContent = centerMode ? "Center Mode: Drag to align image" : "Normal Mode";
-    }
-  });
-
-  // Mouse wheel zoom
-  canvas.addEventListener('wheel', (e) => {
-    if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
-      let delta = e.deltaY < 0 ? 1.1 : 0.9;
-      imageZoom *= delta;
-      imageZoom = Math.max(0.2, Math.min(5, imageZoom));
-      status.textContent = `Zoom: ${imageZoom.toFixed(2)}`;
-    }
-  }, { passive: false });
-
-  function activateCenterMode() {
-    centerMode = true;
-    status.textContent = "Move image mode activated";
-    showCenterPopup();
-    resetPositionBtn.textContent = "✓ Done Moving";
-    resetPositionBtn.style.backgroundColor = "#4a5"; // green to indicate active state
-    // pause rotation so orientation doesn't jump when leaving move mode
-    rotationPaused = true;
-  }
-
-  function deactivateCenterMode() {
-    centerMode = false;
-    status.textContent = "Move image mode exited";
-    hideCenterPopup();
-    resetPositionBtn.textContent = "⌖ Move Image";
-    resetPositionBtn.style.backgroundColor = ""; // reset to default
-    rotationPaused = false;
-  }
-
-  function showCenterPopup() {
-    if (centerPopup) return;
-    centerPopup = document.createElement('div');
-    centerPopup.textContent = 'Move image mode: Drag to move the image. Click "Done Moving" when finished.';
-    centerPopup.style.position = 'fixed';
-    // Place popup at the top-right so it doesn't overlap the controls on the left
-    centerPopup.style.right = '20px';
-    centerPopup.style.top = '20px';
-    centerPopup.style.transform = '';
-    centerPopup.style.background = 'rgba(30,40,60,0.95)';
-    centerPopup.style.color = '#fff';
-    centerPopup.style.padding = '16px 24px';
-    centerPopup.style.borderRadius = '12px';
-    centerPopup.style.fontSize = '18px';
-    centerPopup.style.zIndex = '9999';
-    centerPopup.style.boxShadow = '0 2px 16px rgba(0,0,0,0.25)';
-    document.body.appendChild(centerPopup);
-  }
-
-  function hideCenterPopup() {
-    if (centerPopup) {
-      document.body.removeChild(centerPopup);
-      centerPopup = null;
-    }
-  }
-
-  // Add reset position and zoom buttons to controls
-  const resetPositionBtn = document.createElement('button');
-  resetPositionBtn.textContent = "⌖ Move Image";
-  resetPositionBtn.className = "btn";
-  resetPositionBtn.onclick = () => {
-    if (centerMode) {
-      deactivateCenterMode();
-      status.textContent = "Move mode deactivated";
-    } else {
-      activateCenterMode();
-    }
-  };
-  resetBtn.parentNode.insertBefore(resetPositionBtn, resetBtn.nextSibling);
-
-  const zoomInBtn = document.createElement('button');
-  zoomInBtn.textContent = "+ Zoom";
-  zoomInBtn.className = "btn";
-  zoomInBtn.onclick = () => {
-    imageZoom = Math.min(5, imageZoom * 1.15);
-    status.textContent = `Zoom: ${imageZoom.toFixed(2)}`;
-  };
-  resetPositionBtn.parentNode.insertBefore(zoomInBtn, resetPositionBtn.nextSibling);
-
-  const zoomOutBtn = document.createElement('button');
-  zoomOutBtn.textContent = "- Zoom";
-  zoomOutBtn.className = "btn";
-  zoomOutBtn.onclick = () => {
-    imageZoom = Math.max(0.2, imageZoom / 1.15);
-    status.textContent = `Zoom: ${imageZoom.toFixed(2)}`;
-  };
-  zoomInBtn.parentNode.insertBefore(zoomOutBtn, zoomInBtn.nextSibling);
-
-  // Decenter toggle button
-  const decenterBtn = document.createElement('button');
-  decenterBtn.textContent = "Decenter";
-  decenterBtn.className = "btn";
-  decenterBtn.onclick = () => {
-    decenterEnabled = !decenterEnabled;
-    decenterBtn.style.backgroundColor = decenterEnabled ? '#4a5' : '';
-    decenterBtn.textContent = decenterEnabled ? 'Decentering' : 'Decenter';
-    status.textContent = decenterEnabled ? 'Decenter enabled' : 'Decenter disabled';
-  };
-  zoomOutBtn.parentNode.insertBefore(decenterBtn, zoomOutBtn.nextSibling);
-
-  // Reset offsets button (does not toggle move mode)
-  const resetOffsetsBtn = document.createElement('button');
-  resetOffsetsBtn.textContent = "Reset Position";
-  resetOffsetsBtn.className = "btn";
-  resetOffsetsBtn.onclick = () => {
-    imageOffsetX = 0; imageOffsetY = 0; rotationCenterOffsetX = 0; rotationCenterOffsetY = 0;
-    status.textContent = "Image and center reset to default";
-  };
-  decenterBtn.parentNode.insertBefore(resetOffsetsBtn, decenterBtn.nextSibling);
-
   // events
   canvas.addEventListener('pointerdown', onPointerDown);
   canvas.addEventListener('pointermove', onPointerMove);
@@ -737,18 +508,12 @@ window.onload = function() {
   // auto-start 2 minutes
   function startAuto(duration=120000){
     if(!isRunning){
-      isRunning = true;
-      indicator.classList.add('on');
-      startStop.textContent="⏸ Pause";
-      status.textContent="Auto-play";
-      rotationVelocity = rotationSpeed; // Start at normal speed
+      isRunning = true; indicator.classList.add('on'); startStop.textContent="⏸ Pause"; status.textContent="Auto-play";
+      rotationVelocity = rotationSpeed * 50; // Démarrer avec une rotation plus rapide pour simuler le lancement
     }
     if(autoStopTimer) clearTimeout(autoStopTimer);
     autoStopTimer = setTimeout(()=>{
-      isRunning = false;
-      indicator.classList.remove('on');
-      startStop.textContent="▶️ Start";
-      status.textContent="Auto-play finished";
+      isRunning = false; indicator.classList.remove('on'); startStop.textContent="▶️ Start"; status.textContent="Auto-play finished";
       autoStopTimer = null;
     }, duration);
   }
