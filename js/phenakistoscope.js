@@ -95,6 +95,7 @@ window.onload = function() {
   let lastPointerAngle = 0;
   let lastPointerTime = 0;
   let pointerVelSamples = []; // recent samples of angular velocity
+  let pointerMoveMode = false; // when Move Image is active and using pointer to move/decenter
 
   // helpers
   function pathFor(filename){ return "images/" + filename; }
@@ -468,6 +469,15 @@ window.onload = function() {
   }
 
   function onPointerDown(e){
+    // If Move (centerMode) is active, use pointer to move/decenter the image instead of spinning
+    if (centerMode) {
+      pointerMoveMode = true;
+      lastPanX = e.clientX;
+      lastPanY = e.clientY;
+      try { canvas.setPointerCapture(e.pointerId); } catch(e){}
+      return;
+    }
+
     isDragging = true;
     pointerVelSamples = [];
     lastPointerAngle = pointerAngle(e.clientX, e.clientY);
@@ -475,6 +485,23 @@ window.onload = function() {
     try { canvas.setPointerCapture(e.pointerId); } catch(e){}
   }
   function onPointerMove(e){
+    if (pointerMoveMode) {
+      const rect = canvas.getBoundingClientRect();
+      const scale = canvas.width / rect.width;
+      // if decentering, move rotation center; otherwise move image
+      if (decenterEnabled) {
+        rotationCenterOffsetX += (e.clientX - lastPanX) * scale;
+        rotationCenterOffsetY += (e.clientY - lastPanY) * scale;
+        status.textContent = `Decentering: ${Math.round(rotationCenterOffsetX)}, ${Math.round(rotationCenterOffsetY)}`;
+      } else {
+        imageOffsetX += (e.clientX - lastPanX) * scale;
+        imageOffsetY += (e.clientY - lastPanY) * scale;
+        status.textContent = `Moving image: ${Math.round(imageOffsetX)}, ${Math.round(imageOffsetY)}`;
+      }
+      lastPanX = e.clientX; lastPanY = e.clientY;
+      return;
+    }
+
     if(!isDragging) return;
     const now = performance.now();
     const angle = pointerAngle(e.clientX, e.clientY);
@@ -489,6 +516,12 @@ window.onload = function() {
     lastPointerTime = now;
   }
   function onPointerUp(e){
+    if (pointerMoveMode) {
+      pointerMoveMode = false;
+      try { canvas.releasePointerCapture(e.pointerId); } catch(e){}
+      return;
+    }
+
     if(!isDragging) return;
     isDragging = false;
     if(pointerVelSamples.length){
