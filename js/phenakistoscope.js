@@ -368,7 +368,7 @@ window.onload = function() {
     ctx.clearRect(0,0,canvas.width,canvas.height);
     const cx = canvas.width/2, cy = canvas.height/2;
     ctx.fillStyle = "#070b10"; 
-    ctx.fillRect(0,0,canvas.width,anvas.height);
+    ctx.fillRect(0,0,canvas.width,canvas.height);
 
     if(discImage && discImage.complete && discImage.naturalWidth>0){
       ctx.save(); 
@@ -590,7 +590,8 @@ window.onload = function() {
     centerPopup = document.createElement('div');
     centerPopup.textContent = 'Center image mode: Drag to center the image. Tap again to exit.';
     centerPopup.style.position = 'fixed';
-    centerPopup.style.left = '50%';
+    centerPopup.style.left = '50%';Cross stays visible during centering
+    
     centerPopup.style.top = '20%';
     centerPopup.style.transform = 'translate(-50%,0)';
     centerPopup.style.background = 'rgba(30,40,60,0.95)';
