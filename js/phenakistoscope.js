@@ -67,6 +67,9 @@ window.onload = function() {
   let isPanning = false;
   let lastPanX = 0;
   let lastPanY = 0;
+  let centerMode = false;
+  let lastTapTime = 0;
+  let centerPopup = null;
 
   let viewMode = 'simulation'; // DÉFAUT MAINTENANT SUR 'simulation'
   let isRunning = false;
@@ -454,6 +457,14 @@ window.onload = function() {
       lastPanY = (touch1.clientY + touch2.clientY) / 2;
       status.textContent = "Pan mode: Two fingers to adjust image position";
     }
+    // Double-tap detection for center mode
+    if (e.touches.length === 1) {
+      const now = Date.now();
+      if (now - lastTapTime < 350) {
+        activateCenterMode();
+      }
+      lastTapTime = now;
+    }
   });
 
   canvas.addEventListener('touchmove', (e) => {
@@ -482,6 +493,19 @@ window.onload = function() {
       
       status.textContent = `Image position: ${Math.round(imageOffsetX)}, ${Math.round(imageOffsetY)}`;
     }
+    // Center mode: drag to center
+    if (centerMode && e.touches.length === 1) {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const rect = canvas.getBoundingClientRect();
+      const cx = rect.left + rect.width/2;
+      const cy = rect.top + rect.height/2;
+      const scale = canvas.width / rect.width;
+      imageOffsetX = (touch.clientX - cx) * scale;
+      imageOffsetY = (touch.clientY - cy) * scale;
+      status.textContent = `Center mode: ${Math.round(imageOffsetX)}, ${Math.round(imageOffsetY)}`;
+      if (centerPopup) centerPopup.textContent = 'Drag to center the image. Tap again to exit.';
+    }
   });
 
   canvas.addEventListener('touchend', (e) => {
@@ -489,7 +513,53 @@ window.onload = function() {
       isPanning = false;
       status.textContent = "Pan ended - Release both fingers to finish adjusting";
     }
+    if (centerMode && e.touches.length === 0) {
+      // Exit center mode on tap
+      deactivateCenterMode();
+    }
   });
+
+  // Double-tap to activate center mode (for mouse)
+  canvas.addEventListener('dblclick', (e) => {
+    activateCenterMode();
+  });
+
+  function activateCenterMode() {
+    centerMode = true;
+    status.textContent = "Center image mode activated";
+    showCenterPopup();
+  }
+
+  function deactivateCenterMode() {
+    centerMode = false;
+    status.textContent = "Center image mode exited";
+    hideCenterPopup();
+  }
+
+  function showCenterPopup() {
+    if (centerPopup) return;
+    centerPopup = document.createElement('div');
+    centerPopup.textContent = 'Center image mode: Drag to center the image. Tap again to exit.';
+    centerPopup.style.position = 'fixed';
+    centerPopup.style.left = '50%';
+    centerPopup.style.top = '20%';
+    centerPopup.style.transform = 'translate(-50%,0)';
+    centerPopup.style.background = 'rgba(30,40,60,0.95)';
+    centerPopup.style.color = '#fff';
+    centerPopup.style.padding = '16px 24px';
+    centerPopup.style.borderRadius = '12px';
+    centerPopup.style.fontSize = '18px';
+    centerPopup.style.zIndex = '9999';
+    centerPopup.style.boxShadow = '0 2px 16px rgba(0,0,0,0.25)';
+    document.body.appendChild(centerPopup);
+  }
+
+  function hideCenterPopup() {
+    if (centerPopup) {
+      document.body.removeChild(centerPopup);
+      centerPopup = null;
+    }
+  }
 
   // Add reset position button to controls
   const resetPositionBtn = document.createElement('button');
