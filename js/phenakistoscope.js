@@ -62,7 +62,7 @@ window.onload = function() {
   let backgroundFrame = new Image();
   backgroundFrame.src = "images/frame_2.png";
 
-  let viewMode = 'simulation';
+  let viewMode = 'simulation'; // DÉFAUT MAINTENANT SUR 'simulation'
   let isRunning = false;
   let rotation = 0;
   let rotationVelocity = 0;   // actual angular velocity (radians/frame)
@@ -70,6 +70,10 @@ window.onload = function() {
   let showInset = false;
   let autoStopTimer = null;
   let glowIntensity = parseFloat(lightSlider.value);
+
+  // NOUVEAU: Offset pour le centrage de l'image
+  let offsetX = 0;
+  let offsetY = 0;
 
   // slit state
   let slitCount = parseInt(slitsSlider.value || 12);
@@ -94,6 +98,8 @@ window.onload = function() {
     // default first
     discSelect.selectedIndex = 0;
     loadSelectedDisc();
+    // Sélectionner 'simulation' par défaut dans le HTML
+    viewModeSel.value = 'simulation';
   }
 
   function showSpinner(on){ spinner.classList.toggle('visible', !!on); }
@@ -103,6 +109,27 @@ window.onload = function() {
     thumbnail.onload = () => { thumbnail.style.opacity = 1; };
     thumbnail.src = src;
   }
+  
+  // NOUVEAU: Centrage automatique
+  function centerDisc() {
+    if (!discImage || !discImage.width) {
+      resetDiscOffset();
+      return;
+    }
+    // Simple guess: assume the disc is centered based on image dimensions
+    // We want the image's center (width/2, height/2) to align with the canvas center (0,0 translation point)
+    offsetX = -(discImage.width * 0.5);
+    offsetY = -(discImage.height * 0.5);
+
+    status.textContent = `Centrage ajusté (dx: ${offsetX.toFixed(0)}, dy: ${offsetY.toFixed(0)})`;
+  }
+
+  function resetDiscOffset() {
+    offsetX = 0;
+    offsetY = 0;
+    status.textContent = "Centrage réinitialisé (offset 0)";
+  }
+
 
   // load from images/ folder (photo mode default)
   function loadSelectedDisc(){
@@ -113,6 +140,7 @@ window.onload = function() {
     const img = new Image();
     img.onload = () => {
       discImage = img;
+      centerDisc(); // Centrer après le chargement
       updateThumbnail(p);
       status.textContent = "Loaded " + f;
       showSpinner(false);
@@ -137,6 +165,7 @@ window.onload = function() {
       const img = new Image();
       img.onload = () => {
         discImage = img;
+        centerDisc(); // Centrer après le chargement
         updateThumbnail(ev.target.result);
         status.textContent = "Loaded local " + f.name;
         showSpinner(false);
@@ -158,6 +187,7 @@ window.onload = function() {
     img.crossOrigin = "anonymous";
     img.onload = () => {
       discImage = img;
+      centerDisc(); // Centrer après le chargement
       updateThumbnail(url);
       status.textContent = "Loaded from URL";
       showSpinner(false);
@@ -275,7 +305,11 @@ window.onload = function() {
       ctx.translate(cx, cy); ctx.rotate(rotation);
       const s = Math.max((r*2)/discImage.width, (r*2)/discImage.height);
       const iw = discImage.width * s, ih = discImage.height * s;
-      ctx.drawImage(discImage, -iw/2, -ih/2, iw, ih); ctx.restore();
+      
+      // APPLIQUER L'OFFSET ICI POUR LE MODE PHOTO
+      ctx.drawImage(discImage, offsetX, offsetY, iw, ih); 
+      
+      ctx.restore();
     }
 
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.lineWidth = Math.max(6, canvas.width*0.008); ctx.strokeStyle = "rgba(255,255,255,0.06)"; ctx.stroke();
@@ -297,7 +331,6 @@ window.onload = function() {
     ctx.fillStyle = g; ctx.fillRect(0,0,canvas.width,canvas.height);
   }
 
-  // --- FONCTION DRAW SIMULATION CORRIGÉE ---
   // Simulation mode: dessine l'image avec une rotation compensée pour créer la persistance de vision.
   function drawSimulation(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -311,30 +344,27 @@ window.onload = function() {
         const rotationPerSegment = (2 * Math.PI / slits);
         
         // Calculer l'index de l'image (frame) actuellement visible.
-        // On divise la rotation actuelle par l'angle d'un segment pour trouver l'index.
         let frameIndex = Math.floor(rotation / rotationPerSegment);
         
-        // Rotation COMPENSÉE pour l'affichage de l'image fixe :
-        // On fait reculer la rotation de l'image pour qu'elle corresponde exactement 
-        // à l'image fixe que l'on veut voir.
-        // Le compensatedRotation sera un petit angle variant entre 0 et rotationPerSegment
+        // Rotation COMPENSÉE
         const compensatedRotation = rotation - (frameIndex * rotationPerSegment);
         
         // --- Rendu de l'image (légèrement tournante, mais synchronisée) ---
         ctx.save(); 
         ctx.translate(cx, cy); 
         
-        // APPLIQUER LA ROTATION COMPENSÉE. 
-        // C'est cette rotation MINIME qui crée l'effet de mouvement dans la frame.
+        // APPLIQUER LA ROTATION COMPENSÉE.
         ctx.rotate(compensatedRotation);
         
         const s = Math.min((canvas.width*0.9)/discImage.width,(canvas.height*0.9)/discImage.height);
         const iw = discImage.width*s, ih = discImage.height*s; 
-        ctx.drawImage(discImage,-iw/2,-ih/2,iw,ih); 
+        
+        // APPLIQUER L'OFFSET ICI
+        ctx.drawImage(discImage, offsetX, offsetY, iw, ih); 
+        
         ctx.restore();
     }
-}
-// --- FIN DE LA FONCTION CORRIGÉE ---
+  }
 
 
   // inset draw
@@ -344,7 +374,10 @@ window.onload = function() {
     insetCtx.save(); insetCtx.translate(insetCanvas.width/2,insetCanvas.height/2); insetCtx.rotate(rotation);
     if(discImage && discImage.complete && discImage.naturalWidth>0){
       const s = Math.max(insetCanvas.width/discImage.width, insetCanvas.height/discImage.height);
-      const iw = discImage.width*s, ih = discImage.height*s; insetCtx.drawImage(discImage,-iw/2,-ih/2,iw,ih);
+      const iw = discImage.width*s, ih = discImage.height*s; 
+      
+      // APPLIQUER L'OFFSET ICI
+      insetCtx.drawImage(discImage, offsetX, offsetY, iw, ih);
     }
     insetCtx.restore();
     insetCtx.beginPath(); insetCtx.arc(insetCanvas.width/2,insetCanvas.height/2,insetCanvas.width/2 - 2,0,Math.PI*2); insetCtx.lineWidth = 3; insetCtx.strokeStyle="rgba(255,255,255,0.06)"; insetCtx.stroke();
