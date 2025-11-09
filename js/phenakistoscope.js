@@ -370,7 +370,7 @@ window.onload = function() {
     ctx.fillStyle = "#070b10"; 
     ctx.fillRect(0,0,canvas.width,canvas.height);
 
-    
+
     if(discImage && discImage.complete && discImage.naturalWidth>0){
       ctx.save(); 
       ctx.translate(cx,cy); 
@@ -409,8 +409,12 @@ window.onload = function() {
       const s = Math.max(insetCanvas.width/discImage.width, insetCanvas.height/discImage.height);
       const iw = discImage.width*s, ih = discImage.height*s; 
       
-      // APPLIQUER L'OFFSET ICI
-      insetCtx.drawImage(discImage, offsetX, offsetY, iw, ih);
+      // Map main canvas image offsets into inset canvas coordinates
+      const offsetScaleX = insetCanvas.width / canvas.width;
+      const offsetScaleY = insetCanvas.height / canvas.height;
+      const ix = -iw/2 + (imageOffsetX * offsetScaleX);
+      const iy = -ih/2 + (imageOffsetY * offsetScaleY);
+      insetCtx.drawImage(discImage, ix, iy, iw, ih);
     }
     insetCtx.restore();
     insetCtx.beginPath(); insetCtx.arc(insetCanvas.width/2,insetCanvas.height/2,insetCanvas.width/2 - 2,0,Math.PI*2); insetCtx.lineWidth = 3; insetCtx.strokeStyle="rgba(255,255,255,0.06)"; insetCtx.stroke();
@@ -591,7 +595,7 @@ window.onload = function() {
     centerPopup = document.createElement('div');
     centerPopup.textContent = 'Center image mode: Drag to center the image. Tap again to exit.';
     centerPopup.style.position = 'fixed';
-    centerPopup.style.left = '50%';Cross stays visible during centering
+    centerPopup.style.left = '50%';
     
     centerPopup.style.top = '20%';
     centerPopup.style.transform = 'translate(-50%,0)';
