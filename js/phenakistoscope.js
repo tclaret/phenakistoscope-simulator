@@ -60,7 +60,7 @@ window.onload = function() {
   // state
   let discImage = new Image();
   let backgroundFrame = new Image();
-  backgroundFrame.src = "images/frame_2.png";
+  backgroundFrame.src = "images/Dancing.jpg";
 
   let viewMode = 'simulation'; // DÉFAUT MAINTENANT SUR 'simulation'
   let isRunning = false;
@@ -70,10 +70,6 @@ window.onload = function() {
   let showInset = false;
   let autoStopTimer = null;
   let glowIntensity = parseFloat(lightSlider.value);
-
-  // NOUVEAU: Offset pour le centrage de l'image
-  let offsetX = 0;
-  let offsetY = 0;
 
   // slit state
   let slitCount = parseInt(slitsSlider.value || 12);
@@ -110,27 +106,6 @@ window.onload = function() {
     thumbnail.src = src;
   }
   
-  // NOUVEAU: Centrage automatique
-  function centerDisc() {
-    if (!discImage || !discImage.width) {
-      resetDiscOffset();
-      return;
-    }
-    // Simple guess: assume the disc is centered based on image dimensions
-    // We want the image's center (width/2, height/2) to align with the canvas center (0,0 translation point)
-    offsetX = -(discImage.width * 0.5);
-    offsetY = -(discImage.height * 0.5);
-
-    status.textContent = `Centrage ajusté (dx: ${offsetX.toFixed(0)}, dy: ${offsetY.toFixed(0)})`;
-  }
-
-  function resetDiscOffset() {
-    offsetX = 0;
-    offsetY = 0;
-    status.textContent = "Centrage réinitialisé (offset 0)";
-  }
-
-
   // load from images/ folder (photo mode default)
   function loadSelectedDisc(){
     const f = discSelect.value;
@@ -140,7 +115,6 @@ window.onload = function() {
     const img = new Image();
     img.onload = () => {
       discImage = img;
-      centerDisc(); // Centrer après le chargement
       updateThumbnail(p);
       status.textContent = "Loaded " + f;
       showSpinner(false);
@@ -165,7 +139,6 @@ window.onload = function() {
       const img = new Image();
       img.onload = () => {
         discImage = img;
-        centerDisc(); // Centrer après le chargement
         updateThumbnail(ev.target.result);
         status.textContent = "Loaded local " + f.name;
         showSpinner(false);
@@ -187,7 +160,6 @@ window.onload = function() {
     img.crossOrigin = "anonymous";
     img.onload = () => {
       discImage = img;
-      centerDisc(); // Centrer après le chargement
       updateThumbnail(url);
       status.textContent = "Loaded from URL";
       showSpinner(false);
@@ -335,35 +307,35 @@ window.onload = function() {
   function drawSimulation(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
     const cx = canvas.width/2, cy = canvas.height/2;
-    ctx.fillStyle = "#070b10"; ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle = "#070b10"; 
+    ctx.fillRect(0,0,canvas.width,canvas.height);
 
     if(discImage && discImage.complete && discImage.naturalWidth>0){
-        
-        const slits = slitCount || 12;
-        // Angle de rotation par segment (en radians)
-        const rotationPerSegment = (2 * Math.PI / slits);
-        
-        // Calculer l'index de l'image (frame) actuellement visible.
-        let frameIndex = Math.floor(rotation / rotationPerSegment);
-        
-        // Rotation COMPENSÉE
-        const compensatedRotation = rotation - (frameIndex * rotationPerSegment);
-        
-        // --- Rendu de l'image (légèrement tournante, mais synchronisée) ---
-        ctx.save(); 
-        ctx.translate(cx, cy); 
-        
-        // APPLIQUER LA ROTATION COMPENSÉE.
-        ctx.rotate(compensatedRotation);
-        
-        const s = Math.min((canvas.width*0.9)/discImage.width,(canvas.height*0.9)/discImage.height);
-        const iw = discImage.width*s, ih = discImage.height*s; 
-        
-        // APPLIQUER L'OFFSET ICI
-        ctx.drawImage(discImage, offsetX, offsetY, iw, ih); 
-        
-        ctx.restore();
+      ctx.save(); 
+      ctx.translate(cx,cy); 
+      ctx.rotate(rotation);
+      const s = Math.min((canvas.width*0.9)/discImage.width,(canvas.height*0.9)/discImage.height);
+      const iw = discImage.width*s, ih = discImage.height*s; 
+      ctx.drawImage(discImage,-iw/2,-ih/2,iw,ih); 
+      ctx.restore();
     }
+
+    // Apply slit mask
+    const slits = slitCount || 12;
+    const slitW = (slitLengthDeg || 10) * Math.PI/180;
+    ctx.save(); 
+    ctx.translate(cx,cy); 
+    ctx.rotate(-rotation);
+    ctx.globalCompositeOperation = "destination-in"; 
+    ctx.beginPath();
+    for(let i=0;i<slits;i++){
+      const a = i*(2*Math.PI/slits)-slitW/2;
+      ctx.moveTo(0,0);
+      ctx.arc(0,0,Math.max(canvas.width,canvas.height),a,a+slitW);
+    }
+    ctx.fillStyle="#fff"; 
+    ctx.fill(); 
+    ctx.restore();
   }
 
 
@@ -388,8 +360,9 @@ window.onload = function() {
     const glowOp = isRunning ? (0.4 + 0.6*Math.abs(Math.sin(rotation*0.2))) * glowIntensity : 0.05 * glowIntensity;
     drawGlow(glowOp);
 
-    if(viewMode === 'simulation') drawSimulation();
-    else if(viewMode === 'photo') drawPhoto();
+    if(viewMode === 'photo') drawPhoto();
+    else if(viewMode === 'simulation') drawSimulation();
+    else drawPhoto(); // fallback to photo mode if unknown view mode
 
     drawInset();
     requestAnimationFrame(render);
