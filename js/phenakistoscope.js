@@ -60,6 +60,9 @@ window.onload = function() {
   let discImage = new Image();
   let backgroundFrame = new Image();
 
+  // image zoom
+  let imageZoom = 1;
+
   let viewMode = 'simulation';
   let isRunning = false;
   let rotation = 0;
@@ -256,7 +259,7 @@ window.onload = function() {
     if(discImage && discImage.complete && discImage.naturalWidth>0){
       ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.closePath(); ctx.clip();
       ctx.translate(cx, cy); ctx.rotate(rotation);
-      const s = Math.max((r*2)/discImage.width, (r*2)/discImage.height);
+      const s = Math.max((r*2)/discImage.width, (r*2)/discImage.height) * imageZoom;
       const iw = discImage.width * s, ih = discImage.height * s;
       ctx.drawImage(discImage, -iw/2, -ih/2, iw, ih); ctx.restore();
     }
@@ -288,7 +291,7 @@ window.onload = function() {
 
     if(discImage && discImage.complete && discImage.naturalWidth>0){
       ctx.save(); ctx.translate(cx,cy); ctx.rotate(rotation);
-      const s = Math.min((canvas.width*0.9)/discImage.width,(canvas.height*0.9)/discImage.height);
+      const s = Math.min((canvas.width*0.9)/discImage.width,(canvas.height*0.9)/discImage.height) * imageZoom;
       const iw = discImage.width*s, ih = discImage.height*s; ctx.drawImage(discImage,-iw/2,-ih/2,iw,ih); ctx.restore();
     }
 
@@ -396,6 +399,53 @@ window.onload = function() {
   canvas.addEventListener('pointerup', onPointerUp);
   canvas.addEventListener('pointercancel', onPointerUp);
   canvas.addEventListener('pointerleave', onPointerUp);
+
+  // Zoom controls (slider + wheel + touch pinch)
+  const zoomSlider = document.getElementById('zoom');
+  const zoomValue = document.getElementById('zoomValue');
+  let lastPinchDist = 0;
+  if (zoomSlider) {
+    zoomSlider.addEventListener('input', (e) => {
+      imageZoom = parseFloat(e.target.value);
+      if (zoomValue) zoomValue.textContent = imageZoom.toFixed(2) + '×';
+      status.textContent = `Zoom: ${imageZoom.toFixed(2)}`;
+    });
+  }
+
+  // mouse wheel zoom (use Ctrl or when in photo view)
+  canvas.addEventListener('wheel', (e) => {
+    if (e.ctrlKey || viewMode === 'photo') {
+      e.preventDefault();
+      const delta = e.deltaY < 0 ? 1.07 : 0.93;
+      imageZoom = Math.max(0.2, Math.min(5, imageZoom * delta));
+      if (zoomSlider) zoomSlider.value = imageZoom;
+      if (zoomValue) zoomValue.textContent = imageZoom.toFixed(2) + '×';
+      status.textContent = `Zoom: ${imageZoom.toFixed(2)}`;
+    }
+  }, { passive: false });
+
+  // simple touch pinch zoom handlers
+  canvas.addEventListener('touchstart', (e) => {
+    if (e.touches && e.touches.length === 2) {
+      const t0 = e.touches[0], t1 = e.touches[1];
+      lastPinchDist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+    }
+  }, { passive: true });
+  canvas.addEventListener('touchmove', (e) => {
+    if (e.touches && e.touches.length === 2) {
+      e.preventDefault();
+      const t0 = e.touches[0], t1 = e.touches[1];
+      const pinchDist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+      if (lastPinchDist) {
+        const change = pinchDist / lastPinchDist;
+        imageZoom = Math.max(0.2, Math.min(5, imageZoom * change));
+        if (zoomSlider) zoomSlider.value = imageZoom;
+        if (zoomValue) zoomValue.textContent = imageZoom.toFixed(2) + '×';
+        status.textContent = `Zoom: ${imageZoom.toFixed(2)}`;
+      }
+      lastPinchDist = pinchDist;
+    }
+  }, { passive: false });
 
   // auto-start 2 minutes
   function startAuto(duration=120000){
