@@ -1,0 +1,22 @@
+<script type="text/javascript" src="http://jqueryrotate.googlecode.com/svn/trunk/jQueryRotate.js"></script>
+
+<a href=""><img src="http://cdn1.iconfinder.com/data/icons/humano2/16x16/emblems/emblem-cd.png" id="image"><span id="spin">Spin</span></a>
+
+
+
+
+   $("#spin").rotate({
+    bind: {
+        mouseover: function () {
+            $("#image").rotate({
+                animateTo: 180
+            })
+        },
+        mouseout: function () {
+            $("#image").rotate({
+                animateTo: 0
+            })
+        }
+    }
+
+});

@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Interactive Turning Vinyl</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: #333;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+
+        h1 {
+            position: absolute;
+            top: 5%;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 30px;
+            transition: all 0.5s;
+        }
+
+        #speed-selector {
+            position: absolute;
+            top: 15%; /* Positioned below the title */
+            padding: 10px;
+            font-size: 18px;
+            z-index: 10;
+        }
+
+        img {
+            position: absolute;
+            display: block;
+            width: 600px;
+            height: 600px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(0deg);
+            transition: 0.05s linear;
+            border-radius: 50%;
+            cursor: grab;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>DJ Scratch Turntable</h1>
+    <select id="speed-selector">
+        <option value="off">Off</option>
+        <option value="33" selected>33 RPM</option>
+        <option value="45">45 RPM</option>
+    </select>
+    <img id="vinyl" src="img/DISC.png" alt="Disque">
+
+    <script>
+        const vinyl = document.getElementById("vinyl");
+    const napis = document.querySelector("h1");
+    const selector = document.getElementById("speed-selector");
+
+    // --- RPM Constants (Rotations per interval tick) ---
+    // These values determine the visual speed of the vinyl when spinning automatically.
+    const RPM_33_SPEED = 0.055; // Arbitrary small number for 33 RPM
+    const RPM_45_SPEED = 0.075; // Higher value for 45 RPM
+
+    let isDragging = false;
+    let startAngle = 0;
+    let currentRotation = 0;
+    let lastRotation = 0;
+    let center = { x: 0, y: 0 };
+    let rotationSpeed = 0;
+    let rotationInterval; // Used for both coasting AND automatic RPM
+
+    // --- Utility Functions (Same as before) ---
+    function getAngle(x, y) {
+        return Math.atan2(y - center.y, x - center.x) * (180 / Math.PI);
+    }
+    function updateCenter() {
+        const rect = vinyl.getBoundingClientRect();
+        center.x = rect.left + rect.width / 2;
+        center.y = rect.top + rect.height / 2;
+    }
+    function applyRotation(angle) {
+        vinyl.style.transform = `translate(-50%, -50%) rotate(${angle}deg)`;
+        currentRotation = angle;
+    }
+
+    // --- New Rotation Management Functions ---
+
+    /** Stops any automatic or deceleration rotation interval. */
+    function stopRotation() {
+        if (rotationInterval) {
+            clearInterval(rotationInterval);
+            rotationSpeed = 0;
+        }
+        vinyl.style.transition = '0.2s ease-out';
+        applyRotation(Math.round(currentRotation / 360) * 360);
+        napis.textContent = "Stopped by Double-Click/Tap or Selector.";
+    }
+
+    /** Starts the constant rotation based on the selected RPM. */
+    function startAutomaticRotation(rpm) {
+        stopRotation(); // Stop any existing rotation first
+        if (rpm === "off") {
+            napis.textContent = "DJ Scratch Turntable (Off)";
+            return;
+        }
+
+        const speed = (rpm === "33") ? RPM_33_SPEED : RPM_45_SPEED;
+
+        // Ensure vinyl transition is smooth when starting rotation
+        vinyl.style.transition = '0s';
+
+        napis.textContent = `Spinning at ${rpm} RPM. Drag to Scratch!`;
+
+        // Start constant rotation
+        rotationInterval = setInterval(() => {
+            currentRotation += speed;
+            applyRotation(currentRotation);
+        }, 5);
+    }
+
+    // --- Drag/Scratch Event Handlers ---
+
+    function startTurn(e) {
+        // Only allow dragging if the selector is not "Off"
+        if (selector.value === "off") return;
+
+        e.preventDefault();
+        clearInterval(rotationInterval); // Stop automatic rotation when touching
+        vinyl.style.transition = '0.05s linear';
+
+        isDragging = true;
+        updateCenter();
+
+        const eventX = e.clientX || e.touches[0].clientX;
+        const eventY = e.clientY || e.touches[0].clientY;
+
+        const pointAngle = getAngle(eventX, eventY);
+
+        startAngle = currentRotation - pointAngle;
+        lastRotation = currentRotation;
+
+        window.addEventListener('mousemove', rotate);
+        window.addEventListener('mouseup', endTurn);
+        window.addEventListener('touchmove', rotate);
+        window.addEventListener('touchend', endTurn);
+
+        napis.textContent = "Scratching...";
+    }
+
+    function rotate(e) {
+        if (!isDragging) return;
+
+        const eventX = e.clientX || e.touches[0].clientX;
+        const eventY = e.clientY || e.touches[0].clientY;
+
+        const newAngle = getAngle(eventX, eventY);
+        let newRotation = startAngle + newAngle;
+
+        rotationSpeed = newRotation - lastRotation;
+        lastRotation = newRotation;
+
+        applyRotation(newRotation);
+    }
+
+    function endTurn() {
+        if (!isDragging) return;
+
+        isDragging = false;
+
+        window.removeEventListener('mousemove', rotate);
+        window.removeEventListener('mouseup', endTurn);
+        window.removeEventListener('touchmove', rotate);
+        window.removeEventListener('touchend', endTurn);
+
+        // If the speed is significant, start coasting
+        if (Math.abs(rotationSpeed) > 0.1) {
+            startDeceleration();
+        } else {
+            // If dragging stopped without momentum, resume automatic rotation
+            startAutomaticRotation(selector.value);
+        }
+    }
+
+    function startDeceleration() {
+        const decelerationRate = 0.995;
+        vinyl.style.transition = '0s';
+
+        // Use rotationInterval for coasting
+        rotationInterval = setInterval(() => {
+            currentRotation += rotationSpeed;
+            applyRotation(currentRotation);
+
+            rotationSpeed *= decelerationRate;
+
+            // Stop when speed is very low
+            if (Math.abs(rotationSpeed) < 0.01) {
+                clearInterval(rotationInterval);
+                // After coasting stops, resume automatic rotation
+                startAutomaticRotation(selector.value);
+            }
+        }, 5);
+    }
+
+    // --- Initial Event Listeners ---
+    selector.addEventListener('change', () => {
+        startAutomaticRotation(selector.value);
+    });
+
+    vinyl.addEventListener('mousedown', startTurn);
+    vinyl.addEventListener('touchstart', startTurn);
+    vinyl.addEventListener('dblclick', stopRotation);
+    vinyl.addEventListener('touchend', (e) => {
+        const now = new Date().getTime();
+        const lastTouchTime = vinyl.lastTouchTime || 0;
+        const delta = now - lastTouchTime;
+        const doubleTapThreshold = 300;
+
+        if (delta > 0 && delta < doubleTapThreshold) {
+            e.preventDefault();
+            // Double-tap stops *all* rotation
+            stopRotation();
+        }
+        vinyl.lastTouchTime = now;
+    });
+
+    // Initial setup and start default 33 RPM
+    window.addEventListener('resize', updateCenter);
+    window.addEventListener('load', () => {
+        updateCenter();
+        startAutomaticRotation(selector.value); // Starts at "33 RPM" by default
+    });
+</script>
+</body>
+
+</html>

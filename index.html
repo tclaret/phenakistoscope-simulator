@@ -1,20 +1,19 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Phenakistoscope Simulator — Explore the Earliest Animation Discs</title>
-<link rel="stylesheet" href="css/style.css">
-  <!-- Favicon: point to existing PNG to avoid browser requesting /favicon.ico and causing a 404 -->
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Phenakistoscope Simulator — Explore the Earliest Animation Discs</title>
+  <link rel="stylesheet" href="css/style.css">
   <link rel="icon" href="images/favicon.png" type="image/png">
   <link rel="shortcut icon" href="images/favicon.png" type="image/png">
 </head>
 <body>
-<div class="container">
-  <header>
-    <h1>Phenakistoscope Simulator — Explore the Earliest Animation Discs</h1>
-    <div style="font-size:13px;color:var(--muted)">Interactive viewer — choose a disc, drag to spin, or use controls.</div>
-  </header>
+  <div class="container">
+    <header>
+      <h1>Phenakistoscope Simulator — Explore the Earliest Animation Discs</h1>
+      <div style="font-size:13px;color:var(--muted)">Interactive viewer — choose a disc, drag to spin, or use controls.</div>
+    </header>
 
   <div class="layout">
     <div class="panel controlsPanel">
@@ -28,92 +27,86 @@
             </div>
           </div>
 
-          <div>
-            <label for="fileInput">Upload image</label>
-            <input id="fileInput" type="file" accept="image/*" />
-            <label style="margin-top:8px">Or paste image URL</label>
-            <div style="display:flex;gap:8px">
-              <input id="imageUrl" type="text" placeholder="https://...jpg" />
-              <button id="loadUrl" class="btn">Load</button>
-            </div>
-          </div>
+        <div>
+        <label for="fileInput">Upload image</label>
+        <input id="fileInput" type="file" accept="image/*" />
+        <label style="margin-top:8px">Or paste image URL</label>
+        <div style="display:flex;gap:8px">
+          <input id="imageUrl" type="text" placeholder="https://...jpg" />
+            <button id="loadUrl" class="btn">Load</button>
         </div>
-
-        <div style="border-top:1px solid rgba(255,255,255,0.03);padding-top:10px">
-          <div class="controls-bottom">
-            <div style="display:flex;align-items:center;gap:8px">
-              <button id="startStop" class="btn">▶️ Start</button>
-              <div id="indicator" class="indicator"></div>
-              <button id="reverseBtn" class="btn">⇄ Reverse</button>
-              <button id="resetBtn" class="btn">🔁 Reset</button>
-            </div>
-
-            <div class="speedWrap">
-              <label for="speed">Speed</label>
-              <input id="speed" type="range" min="0.001" max="0.12" step="0.001" value="0.02" />
-              <div class="speedValue" id="speedValue">0.020</div>
-            </div>
-
-
-            <div style="display:flex;gap:8px;align-items:center">
-              <label for="slits">Slits</label>
-              <input id="slits" type="range" min="4" max="60" step="1" value="12" />
-              <div class="speedValue" id="slitsValue">12</div>
-            </div>
-
-            <div style="display:flex;gap:8px;align-items:center">
-              <label for="slitLen">Slit length</label>
-              <input id="slitLen" type="range" min="1" max="40" step="1" value="10" />
-              <div class="speedValue" id="slitLenValue">10°</div>
-            </div>
-         <div style="border-top:1px solid rgba(255,255,255,0.08);margin:16px 0;padding-top:16px;">
-          <label for="light">Lighting Glow (Lumière d'ambiance)</label>
-          <div style="display:flex;align-items:center;gap:12px;">
-            <input id="light" type="range" min="0.01" max="1.0" step="0.01" value="0.5" />
-            <span id="lightValue" class="valueDisplay">0.50</span>
-          </div>
-        </div>
-            <div style="display:flex;gap:8px;align-items:center">
-              <label for="viewMode">View</label>
-              <select id="viewMode">
-                <option value="photo">Photo</option>
-                <option value="simulation">Simulation</option>
-              </select>
-              <button id="toggleInset" class="btn">Toggle Inset</button>
-            </div>
-          </div>
-        </div>
-
-        <div style="margin-top:6px;color:var(--muted);font-size:13px">Status: <span id="status">Ready</span></div>
       </div>
     </div>
 
-    <div class="panel viewer">
-      <div class="canvasWrap">
-        <div id="glow" class="glowRing" style="width:860px;height:860px;opacity:0;"></div>
-
-        <canvas id="viewCanvas" width="800" height="800" aria-label="Phenakistoscope view"></canvas>
-
-        <div id="inset" class="inset">
-          <canvas id="insetCanvas" width="200" height="200"></canvas>
+    <div style="border-top:1px solid rgba(255,255,255,0.03);padding-top:10px">
+      <div class="controls-bottom">
+        <div style="display:flex;align-items:center;gap:8px">
+          <button id="startStop" class="btn">▶️ Start</button>
+          <div id="indicator" class="indicator"></div>
+          <button id="reverseBtn" class="btn">⇄ Reverse</button>
+          <button id="resetBtn" class="btn">🔁 Reset</button>
         </div>
 
-        <div id="spinner" class="spinner"><div class="dot"></div></div>
+        <div class="speedWrap">
+          <label for="speed">Speed</label>
+            <input id="speed" type="range" min="0.001" max="0.12" step="0.001" value="0.02" />
+            <div class="speedValue" id="speedValue">0.020</div>
+          </div>
+
+
+          <div style="display:flex;gap:8px;align-items:center">
+            <label for="slits">Slits</label>
+            <input id="slits" type="range" min="4" max="60" step="1" value="12" />
+            <div class="speedValue" id="slitsValue">12</div>
+          </div>
+
+          <div style="display:flex;gap:8px;align-items:center">
+            <label for="slitLen">Slit length</label>
+            <input id="slitLen" type="range" min="1" max="40" step="1" value="10" />
+            <div class="speedValue" id="slitLenValue">10°</div>
+          </div>
+          <div style="border-top:1px solid rgba(255,255,255,0.08);margin:16px 0;padding-top:16px;">
+            <label for="light">Lighting Glow (Lumière d'ambiance)</label>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <input id="light" type="range" min="0.01" max="1.0" step="0.01" value="0.5" />
+              <span id="lightValue" class="valueDisplay">0.50</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <label for="viewMode">View</label>
+          <select id="viewMode">
+            <option value="photo">Photo</option>
+            <option value="simulation">Simulation</option>
+          </select>
+          <button id="toggleInset" class="btn">Toggle Inset</button>
+        </div>
       </div>
-
-      <footer class="about">
-        <strong>About the phenakistoscope</strong>
-        <p style="margin:6px 0 8px 0;color:var(--muted)">The phenakistoscope (also spelled phenakistiscope) is an early animation device that creates the illusion of motion from a sequence of pictures. Select a disc to view the animation and experiment with speed, lighting, and manual spinning.</p>
-        <div style="display:flex;gap:12px;flex-wrap:wrap">
-          <a href="https://en.wikipedia.org/wiki/Phenakistiscope" target="_blank" rel="noopener">Wikipedia — Phenakistiscope</a>
-          <a href="https://www.acmi.net.au/works/100515--phenakistoscope-discs/" target="_blank" rel="noopener">ACMI — Phenakistoscope Discs</a>
-          <a href="https://www.fantasy-animation.org/current-posts/what-is-a-phenakistoscope" target="_blank" rel="noopener">What is a Phenakistoscope? — Fantasy Animation</a>
-        </div>
-      </footer>
     </div>
+
+    <div style="margin-top:6px;color:var(--muted);font-size:13px">Status: <span id="status">Ready</span></div>
   </div>
 </div>
 
+<div class="panel viewer">
+  <div class="canvasWrap">
+    <div id="glow" class="glowRing" style="width:860px;height:860px;opacity:0;"></div>
+      <canvas id="viewCanvas" width="800" height="800" aria-label="Phenakistoscope view"></canvas>
+      <div id="inset" class="inset">
+      <canvas id="insetCanvas" width="200" height="200"></canvas>
+    </div>
+
+    <div id="spinner" class="spinner"><div class="dot"></div>
+  </div>
+</div>
+<footer class="about">
+  <strong>About the phenakistoscope</strong>
+   <p style="margin:6px 0 8px 0;color:var(--muted)">The phenakistoscope (also spelled phenakistiscope) is an early animation device that creates the illusion of motion from a sequence of pictures. Select a disc to view the animation and experiment with speed, lighting, and manual spinning.</p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      <a href="https://en.wikipedia.org/wiki/Phenakistiscope" target="_blank" rel="noopener">Wikipedia — Phenakistiscope</a>
+      <a href="https://www.acmi.net.au/works/100515--phenakistoscope-discs/" target="_blank" rel="noopener">ACMI — Phenakistoscope Discs</a>
+      <a href="https://www.fantasy-animation.org/current-posts/what-is-a-phenakistoscope" target="_blank" rel="noopener">What is a Phenakistoscope? — Fantasy Animation</a>
+    </div>
+</footer>
 <script src="js/phenakistoscope.js" defer></script>
 </body>
 </html>

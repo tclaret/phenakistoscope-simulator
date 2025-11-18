@@ -1,0 +1,192 @@
+const vinyl = document.getElementById("vinyl");
+    const napis = document.querySelector("h1");
+    const selector = document.getElementById("speed-selector");
+
+    let isDragging = false;
+    let startAngle = 0;
+    let currentRotation = 0; // Tracks manual/scratch rotation state
+    let lastRotation = 0;
+    let center = { x: 0, y: 0 };
+    let rotationSpeed = 0;
+    let decelerationInterval; // Dedicated interval for scratch deceleration
+
+    // --- Utility Functions ---
+    function getAngle(x, y) {
+        return Math.atan2(y - center.x, x - center.y) * (180 / Math.PI);
+        // NOTE: Swapped x and y in atan2 for better center calculation relative to top-left corner
+    }
+
+    // Updates center based on the turntable-base position
+    function updateCenter() {
+        const base = document.getElementById('turntable-base');
+        const rect = base.getBoundingClientRect();
+        center.x = rect.left + rect.width / 2;
+        center.y = rect.top + rect.height / 2;
+    }
+
+    // Applies rotation for scratching (overrides CSS animation)
+    function applyRotation(angle) {
+        vinyl.style.transform = `rotate(${angle}deg)`;
+        currentRotation = angle;
+    }
+
+    // --- RPM Management Functions ---
+
+    /** Stops all rotation: CSS animation and JS deceleration. */
+    function stopAllRotation() {
+        // 1. Stop CSS Animation
+        vinyl.classList.remove('spin-33', 'spin-45');
+        // 2. Clear any scratch deceleration
+        if (decelerationInterval) {
+            clearInterval(decelerationInterval);
+            rotationSpeed = 0;
+        }
+        // 3. Clear any inline transform from scratching to allow CSS animation to take over later
+        vinyl.style.transform = '';
+    }
+
+    /** Starts the constant rotation based on the selected RPM using CSS classes. */
+    function startAutomaticRotation(rpm) {
+        stopAllRotation(); // Stop everything before starting new rotation
+
+        if (rpm === "off") {
+            napis.textContent = "DJ Scratch Turntable (OFF)";
+            return;
+        }
+
+        // Apply the relevant CSS class for smooth, continuous rotation
+        vinyl.classList.add(`spin-${rpm}`);
+        napis.textContent = `Spinning at ${rpm} RPM. Drag to Scratch!`;
+    }
+
+    // --- Drag/Scratch Event Handlers ---
+
+    function startTurn(e) {
+        if (selector.value === "off") return;
+
+        e.preventDefault();
+
+        // 1. Stop CSS animation
+        vinyl.classList.remove('spin-33', 'spin-45');
+        // 2. Stop deceleration if it was still running
+        if (decelerationInterval) clearInterval(decelerationInterval);
+
+        // 3. Get the current visual rotation angle (important for smooth transition from CSS to drag)
+        const style = window.getComputedStyle(vinyl);
+        const transformMatrix = style.getPropertyValue('transform');
+        if (transformMatrix && transformMatrix !== 'none') {
+            // Function to extract rotation from transform matrix
+            const values = transformMatrix.split('(')[1].split(')')[0].split(',');
+            const a = values[0];
+            const b = values[1];
+            currentRotation = Math.round(Math.atan2(b, a) * (180/Math.PI));
+        } else {
+             // If no transform, start from 0
+             currentRotation = 0;
+        }
+
+        isDragging = true;
+        updateCenter();
+
+        const eventX = e.clientX || e.touches[0].clientX;
+        const eventY = e.clientY || e.touches[0].clientY;
+
+        const pointAngle = getAngle(eventX, eventY);
+
+        startAngle = currentRotation - pointAngle;
+        lastRotation = currentRotation;
+
+        window.addEventListener('mousemove', rotate);
+        window.addEventListener('mouseup', endTurn);
+        window.addEventListener('touchmove', rotate);
+        window.addEventListener('touchend', endTurn);
+
+        napis.textContent = "Scratching...";
+    }
+
+    function rotate(e) {
+        if (!isDragging) return;
+
+        const eventX = e.clientX || e.touches[0].clientX;
+        const eventY = e.clientY || e.touches[0].clientY;
+
+        const newAngle = getAngle(eventX, eventY);
+        let newRotation = startAngle + newAngle;
+
+        rotationSpeed = newRotation - lastRotation;
+        lastRotation = newRotation;
+
+        applyRotation(newRotation);
+    }
+
+    function endTurn() {
+        if (!isDragging) return;
+
+        isDragging = false;
+
+        window.removeEventListener('mousemove', rotate);
+        window.removeEventListener('mouseup', endTurn);
+        window.removeEventListener('touchmove', rotate);
+        window.removeEventListener('touchend', endTurn);
+
+        if (Math.abs(rotationSpeed) > 0.1) {
+            startDeceleration();
+        } else {
+            // If dragging stopped without momentum, resume automatic rotation
+            startAutomaticRotation(selector.value);
+        }
+    }
+
+    function startDeceleration() {
+        const decelerationRate = 0.995;
+        vinyl.style.transition = '0s'; // Deceleration is handled by the interval
+
+        // Use decelerationInterval for coasting
+        decelerationInterval = setInterval(() => {
+            currentRotation += rotationSpeed;
+            applyRotation(currentRotation);
+
+            rotationSpeed *= decelerationRate;
+
+            if (Math.abs(rotationSpeed) < 0.01) {
+                clearInterval(decelerationInterval);
+                // After coasting stops, resume automatic rotation
+                startAutomaticRotation(selector.value);
+            }
+        }, 5);
+    }
+
+    // --- Initial Event Listeners ---
+
+    selector.addEventListener('change', () => {
+        startAutomaticRotation(selector.value);
+    });
+
+    vinyl.addEventListener('mousedown', startTurn);
+    vinyl.addEventListener('touchstart', startTurn);
+    vinyl.addEventListener('dblclick', (e) => {
+        e.preventDefault();
+        stopAllRotation();
+        startAutomaticRotation(selector.value); // Resume selected RPM on double-click
+    });
+
+    vinyl.addEventListener('touchend', (e) => {
+        const now = new Date().getTime();
+        const lastTouchTime = vinyl.lastTouchTime || 0;
+        const delta = now - lastTouchTime;
+        const doubleTapThreshold = 300;
+
+        if (delta > 0 && delta < doubleTapThreshold) {
+            e.preventDefault();
+            stopAllRotation();
+            startAutomaticRotation(selector.value); // Resume selected RPM on double-tap
+        }
+        vinyl.lastTouchTime = now;
+    });
+
+    // Initial setup and start default 33 RPM
+    window.addEventListener('resize', updateCenter);
+    window.addEventListener('load', () => {
+        updateCenter();
+        startAutomaticRotation(selector.value); // Starts at "33" by default
+    });

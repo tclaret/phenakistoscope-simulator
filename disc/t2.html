@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Disque tournant</title>
+  <style>
+    #disque {
+      width: 200px;
+      height: 200px;
+      background: radial-gradient(circle at center, #333, #000);
+      border-radius: 50%;
+      margin: 50px auto;
+      transition: transform 0.5s ease;
+      cursor: pointer;
+    }
+    #disque.tournant {
+      transform: rotate(360deg);
+    }
+  </style>
+</head>
+<body>
+  <div id="disque"></div>
+  <script>
+    const disque = document.getElementById('disque');
+    disque.addEventListener('click', () => {
+      disque.classList.toggle('tournant');
+    });
+  </script>
+</body>
+</html>   

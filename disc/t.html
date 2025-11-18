@@ -1,0 +1,62 @@
+// Source - https://stackoverflow.com/a
+// Posted by Imtiaz, modified by community. See post 'Timeline' for change history
+// Retrieved 2025-11-12, License - CC BY-SA 3.0
+
+    <!DOCTYPE html ">
+<html>
+<head>
+<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.1/jquery.min.js"></script>
+<script type="text/javascript" src="http://jqueryrotate.googlecode.com/svn/trunk/jQueryRotate.js"></script>
+
+<style>
+#image {
+    margin-bottom:-5px;
+}
+a {
+    color:red;
+}
+#spin {
+    margin-left:10px;
+}
+</style>
+</head>
+
+<body>
+<a href=""><img src="http://cdn1.iconfinder.com/data/icons/humano2/16x16/emblems/emblem-cd.png" id="image"><span id="spin">asdfasdfasdgt</span></a>
+</body>
+<script>
+$(document).ready(function() {
+$("#image").rotate({
+    bind: {
+        mouseover: function () {
+            $(this).rotate({
+                animateTo: 360
+            })
+        },
+        mouseout: function () {
+            $(this).rotate({
+                animateTo: 0
+            })
+        }
+    }
+});
+
+$("#spin").rotate({
+    bind: {
+        mouseover: function () {
+            $("#image").rotate({
+                animateTo: 360
+            })
+        },
+        mouseout: function () {
+            $("#image").rotate({
+                animateTo: 0
+            })
+        }
+    }
+
+});
+});
+</script>
+</html>
+

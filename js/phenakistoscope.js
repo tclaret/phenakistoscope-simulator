@@ -2,9 +2,8 @@
 // Separated JS for the simulator. Make sure this file is saved next to index.html.
 
 window.onload = function() {
-  console.log("Phenakistoscope v3 (separated JS) starting...");
+  console.log("Phenakistoscope v3 starting...");
 
-  // All images from your images/ folder (use exactly these filenames)
   const imageFiles = [
     "a_cheval.png",
     "AEO175939_PhenakistoscopeGiroux60.jpg",
@@ -38,12 +37,10 @@ window.onload = function() {
   const indicator = document.getElementById('indicator');
   const speedSlider = document.getElementById('speed');
   const speedValue = document.getElementById('speedValue');
-  // Lignes pour 'lightSlider' et 'lightValue' retirées
   const toggleInset = document.getElementById('toggleInset');
   const insetDiv = document.getElementById('inset');
   const spinner = document.getElementById('spinner');
   const status = document.getElementById('status');
-  // Ligne pour 'glow' retirée
 
   // slit controls
   const slitsSlider = document.getElementById('slits');
@@ -70,11 +67,10 @@ window.onload = function() {
   let viewMode = 'simulation';
   let isRunning = false;
   let rotation = 0;
-  let rotationVelocity = 0;   // actual angular velocity (radians/frame)
-  let rotationSpeed = parseFloat(speedSlider.value); // base speed used for auto-run
-  let showInset = false; // Default to hidden
+  let rotationVelocity = 0;                           // actual angular velocity (radians/frame)
+  let rotationSpeed = parseFloat(speedSlider.value);  // base speed used for auto-run
+  let showInset = false;                              // Default to hidden
   let autoStopTimer = null;
-  let glowIntensity = 0; // Initialisé à 0 car la lumière est supprimée.
 
   // slit state
   let slitCount = parseInt(slitsSlider.value || 12);
@@ -99,8 +95,8 @@ window.onload = function() {
     // default first
     discSelect.selectedIndex = 0;
     loadSelectedDisc();
-    // Sélectionner 'simulation' par défaut dans le HTML
     viewModeSel.value = 'simulation';
+    
     // Afficher l'incrustation par défaut
     insetDiv.style.display = showInset ? 'block' : 'none';
     toggleInset.textContent = showInset ? "Hide Inset" : "Show Inset";

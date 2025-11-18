@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Document</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            height: 100vh;
+        }
+
+        img {
+            position: absolute;
+            display: block;
+            width: 600px;
+            height: 600px;
+            top: 60%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(0deg);
+            transition: 2s;
+        }
+
+        button {
+            position: absolute;
+            left: 50%;
+            top: 90%;
+            transform: translate(-50%, -50%);
+        }
+    </style>
+</head>
+<body>
+    <h1></h1>
+    <button></button>
+    <img src="img/DISC.png" alt="Disque">
+
+    <script>
+        let sumaObrotow = 0;
+        const button = document.querySelector("button");
+        const circle = document.querySelector("img");
+        button.addEventListener("click", tourne);
+        const napis = document.querySelector("h1")
+
+        function tourne() {
+            const rotate = Math.floor(Math.random() * 360 + 1);
+            const twist = 3600 + rotate;
+            const silaObrotu = Math.random() * 3 + 3;
+
+            sumaObrotow += twist;
+            circle.style.transform = "translate(-50%, -50%) rotate(" + sumaObrotow + "deg)";
+            circle.style.transition = silaObrotu + "s";
+
+            console.log(rotate);
+            setTimeout(gogetit, silaObrotu*1000);
+            
+            let a = 0;
+            if(rotate<160){
+                a = 0;
+            } else if(rotate>300){
+                a = 1;
+            } else{
+                a = 2;
+            }
+
+            function gogetit() {
+                switch (a) {
+                    case 0:
+                        napis.textContent = "Attata ";
+                        break;
+                    case 2:
+                        napis.textContent = "BINGO";
+                        break;
+                    default:
+                        napis.textContent = "";
+                        break;
+                }
+                
+
+            }
+            if(a==2){
+                setInterval(kolor, 1);
+                setInterval(kolor2, 0.5);
+            }
+            function kolor(){
+                    napis.style.color = "red";
+                    napis.style.fontSize = "50px";
+                }
+            function kolor2(){
+                    napis.style.color = "yellow";
+                    napis.style.fontSize = "80px";
+                }
+        }
+    </script>
+</body>
+
+</html>
